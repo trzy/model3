@@ -131,7 +131,7 @@ void tilegen_printf(const char *fmt, ...)
   print(s_cursor.x, s_cursor.y, buf);
 }
 
-static inline void write_reg(uint8_t offset, uint32_t data)
+void tilegen_write_reg(int offset, uint32_t data)
 {
   ppc_stwbrx(0xf1180000 + offset, data);
 }
@@ -179,16 +179,16 @@ static void load_palette(uint32_t dest_color, const void *src_ptr, uint16_t num_
 
 void tilegen_init(void)
 {
-  write_reg(0x08, 0xef);        // ?
-  write_reg(0x40, 0);           // layer A/A' color offset
-  write_reg(0x44, 0);           // layer B/B' color offset
-  write_reg(0x60, 0x80000000);  // A scroll and layer enable
-  write_reg(0x64, 0x80000000);  // A' scroll and layer enable
-  write_reg(0x68, 0x80000000);  // B scroll and layer enable
-  write_reg(0x6c, 0x80000000);  // B' scroll and layer enable
-  write_reg(0x0c, 0x3);         // ?
-  write_reg(0x20, 0x5ea);       // 8-bit color mode for all layers, priority setting 5, and unknown bits
-  write_reg(0x10, 0x8);         // actually an IRQ ack register and probably not needed here
+  tilegen_write_reg(0x08, 0xef);        // ?
+  tilegen_write_reg(0x40, 0);           // layer A/A' color offset
+  tilegen_write_reg(0x44, 0);           // layer B/B' color offset
+  tilegen_write_reg(0x60, 0x80000000);  // A scroll and layer enable
+  tilegen_write_reg(0x64, 0x80000000);  // A' scroll and layer enable
+  tilegen_write_reg(0x68, 0x80000000);  // B scroll and layer enable
+  tilegen_write_reg(0x6c, 0x80000000);  // B' scroll and layer enable
+  tilegen_write_reg(0x0c, 0x3);         // ?
+  tilegen_write_reg(0x20, 0x5ea);       // 8-bit color mode for all layers, priority setting 5, and unknown bits
+  tilegen_write_reg(0x10, 0x8);         // actually an IRQ ack register and probably not needed here
   
   /*
    * Carefully initialize VRAM:

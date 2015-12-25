@@ -172,7 +172,7 @@ unrecoverable:
   li      %r3,0xff          // r3 = 0xff
   xor     %r0,%r0,%r0       // r0 = 0x00
 .top:
-  stb     %r3,0x1c(%r2)     // LED?
+  stb     %r3,0x1c(%r2)     // LED
 .delay_set:  
   mftbl   %r4
   andis.  %r4,%r4,0x00400000@h

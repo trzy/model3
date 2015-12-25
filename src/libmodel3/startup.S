@@ -88,7 +88,7 @@ floating_point_unavailable_exception_vector:
 
   .org 0x900
 decrementer_exception_vector:
-  ba     0xfff00900
+  rfi
 
   .org 0xa00
 reserved_vector_0a00:
@@ -197,20 +197,26 @@ _start:
   li      %r4,0x04
   stb     %r4,0x1c(%r31)  // 0x04 to LED
   bl      main
+  // Disable external interrupts
+  mfmsr   %r3
+  isync
+  rlwinm  %r3,%r3,0,17,15 // disable interrupts (bit 16, EE)
+  mtmsr   %r3
+  isync
   // Flash 0xAA/0x55 repeatedly on LED
   lis     %r31,ADDR_SYSREGS@h
   ori     %r31,%r31,ADDR_SYSREGS@l
-  li      %r3,0xac          // ?
-  stb     %r3,0x3c(%r31)    // ?
-  li      %r3,0xaa          // r3 = 0xaa
-  li      %r0,0x55          // r0 = 0x55
+  li      %r3,0xac        // ?
+  stb     %r3,0x3c(%r31)  // ?
+  li      %r3,0xaa        // r3 = 0xaa
+  li      %r0,0x55        // r0 = 0x55
 .infinite_loop:
-  stb     %r3,0x1c(%r31)    // LED = 0xaa
+  stb     %r3,0x1c(%r31)  // LED = 0xaa
 .delay_aa:
   mftbl   %r4
   andis.  %r4,%r4,0x00800000@h
   bne     .delay_aa
-  stb     %r0,0x1c(%r31)    // LED = 0x55
+  stb     %r0,0x1c(%r31)  // LED = 0x55
 .delay_55:
   mftbl   %r4
   andis.  %r4,%r4,0x00800000@h
@@ -220,20 +226,20 @@ _start:
 
 setup_cache:
   mfspr   %r3,1008        // hid0
-  ori     %r3,%r3,0x0800  // icfi: instruction cache flash invalidate 
+  ori     %r3,%r3,0x0800  // ICFI: instruction cache flash invalidate 
   mtspr   1008,%r3
   xori    %r3,%r3,0x0800
   mtspr   1008,%r3
-  ori     %r3,%r3,0x8000  // ice: instruction cache enable
+  ori     %r3,%r3,0x8000  // ICE: instruction cache enable
   isync 
   mtspr   1008,%r3
   isync 
   mfspr   %r3,1008
-  ori     %r3,%r3,0x0400  // dcfi: data cache flash invalidate
+  ori     %r3,%r3,0x0400  // DCFI: data cache flash invalidate
   mtspr   1008,%r3
   xori    %r3,%r3,0x0400
   mtspr   1008,%r3
-  ori     %r3,%r3,0x4000  // dce: data cache enable
+  ori     %r3,%r3,0x4000  // DCE: data cache enable
   sync
   mtspr   1008,%r3
   sync  
@@ -252,15 +258,16 @@ setup_model3_system_registers:
   lis     %r2,ADDR_SYSREGS@h
   ori     %r2,%r2,ADDR_SYSREGS@l
   li      %r3,0xff
-  stb     %r3,0x1c(%r2)
-  stb     %r3,0x0c(%r2)
+  stb     %r3,0x1c(%r2) // JTAG tap register (unclear why this is done)
+  stb     %r3,0x0c(%r2) // ?
   li      %r3,0
-  stb     %r3,0x04(%r2)
-  stb     %r3,0x00(%r2)
+  stb     %r3,0x14(%r2) // disable all IRQs
+  stb     %r3,0x04(%r2) // ?
+  stb     %r3,0x00(%r2) // ?
   li      %r3,0xff
-  stb     %r3,0x08(%r2)
+  stb     %r3,0x08(%r2) // ?
   li      %r3,0xaf
-  stb     %r3,0x3c(%r2)
+  stb     %r3,0x3c(%r2) // ?
   blr
 
 clear_fpscr:

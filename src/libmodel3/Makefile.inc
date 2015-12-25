@@ -1,5 +1,13 @@
 LIBMODEL3_LIB = $(LIBDIR)/libmodel3.a
-LIBMODEL3_SRCS = src/libmodel3/crom.S src/libmodel3/startup.S src/libmodel3/jtag.c src/libmodel3/tilegen.c src/libmodel3/newlib_stubs.c src/libmodel3/ppc.c
+LIBMODEL3_SRCS =                  \
+	src/libmodel3/crom.S            \
+	src/libmodel3/startup.S         \
+	src/libmodel3/ppc.c             \
+	src/libmodel3/jtag.c            \
+	src/libmodel3/irq.c             \
+	src/libmodel3/tilegen.c         \
+	src/libmodel3/rtc.c             \
+	src/libmodel3/newlib_stubs.c
 
 DEPENDENCIES += $(LIBMODEL3_SRCS)
 

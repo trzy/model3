@@ -1,14 +1,11 @@
-//TODO: github
-//TODO: basic IRQ handling
-//TODO: verify that MPC10x writes (and initial reg writes) are the same as observed in VF3
 //TODO: implement support for reading controls
 //TODO: implement a simple menu system to conduct experiments
-//TODO: which system regs (and in which order) does VF3 access at startup?
-//TODO: before running on board, test to make sure no unaligned accesses occur
 
 #include "model3/jtag.h"
 #include "model3/tilegen.h"
 #include "model3/ppc.h"
+#include "model3/irq.h"
+#include "model3/rtc.h"
 
 static void setup_pci_devices()
 {
@@ -61,6 +58,63 @@ static void print_bat(uint32_t batu, uint32_t batl)
   tilegen_printf(" Vs=%d Vp=%d\n", vs, vp);
 }
 
+static volatile int s_irq_count[8];
+
+void irq_callback(int irqnum)
+{
+  ++s_irq_count[irqnum];
+  if (irqnum == 1)
+  {
+    // Ack IRQ until clear
+    while (irq_get_pending_mask() & (1 << irqnum))
+      tilegen_write_reg(0x10, 2);
+  }
+}
+
+static void measure_frame_rate(void)
+{
+  volatile uint8_t *led_reg = (uint8_t *) 0xf010001c;
+  uint8_t led = 0x01;
+  *led_reg = ~led;
+  
+  irq_set_callback(-1, irq_callback);
+  irq_enable(1);
+  ppc_set_external_interrupt_enable(1);
+
+  /*
+  rtc_init();
+  int prev_second = rtc_get_time().second;
+  // Wait for second digit to change
+  while (rtc_get_time().second == prev_second)
+    ;
+  prev_second = rtc_get_time().second;
+  */
+  int n0 = s_irq_count[1];
+  int n = n0;
+  int seconds = 0;
+  while (1)
+  {
+/*
+    struct RTCTime t = rtc_get_time();
+    if (t.second != prev_second)
+    {
+      *led_reg = ~led;
+      led = (led >> 1) | ((led & 1) << 7);
+      ++seconds;
+      prev_second = t.second;
+      float fps = (float) (n - n0) / seconds;
+      tilegen_printf_at(32, 7, "FPS : %1.3f", fps);
+      tilegen_printf_at(32, 8, "%d/%02d/%02d %02d:%02d:%02d", t.month, t.day, t.year, t.hour, t.minute, t.second);
+    }
+*/
+    if (n != s_irq_count[1])
+    {
+      n = s_irq_count[1];
+      tilegen_printf_at(32, 6, "IRQ1: %d", n);
+    }
+  }
+}
+
 int main(void)
 {
   jtag_init();
@@ -68,7 +122,6 @@ int main(void)
 
   tilegen_printf("\n*** MODEL 3 TEST PROGRAM ***\n");
   tilegen_printf("\tby Bart Trzynadlowski\n\n\n\n");
-
   tilegen_printf("\tPVR   =%08X\n", ppc_get_pvr());
   tilegen_printf("\tHID0  =%08X\n", ppc_get_hid0());
   tilegen_printf("\tHID1  =%08X\n", ppc_get_hid1());
@@ -90,7 +143,6 @@ int main(void)
   tilegen_printf("\tIBAT3U=%08X\tSR14=%08X\n", ppc_get_ibatu(3), ppc_get_sr(14));
   tilegen_printf("\tIBAT3L=%08X\tSR15=%08X\n", ppc_get_ibatl(3), ppc_get_sr(15));
   tilegen_printf("\n\n\n");
-
   tilegen_printf("DB0: "); print_bat(ppc_get_dbatu(0), ppc_get_dbatl(0));
   tilegen_printf("DB1: "); print_bat(ppc_get_dbatu(1), ppc_get_dbatl(1));
   tilegen_printf("DB2: "); print_bat(ppc_get_dbatu(2), ppc_get_dbatl(2));
@@ -100,5 +152,6 @@ int main(void)
   tilegen_printf("IB2: "); print_bat(ppc_get_ibatu(2), ppc_get_ibatl(2));
   tilegen_printf("IB3: "); print_bat(ppc_get_ibatu(3), ppc_get_ibatl(3));
 
+  measure_frame_rate();
   return 0;
 }

@@ -46,7 +46,33 @@ instruction_storage_interrupt_vector:
   
   .org 0x500
 external_interrupt_vector:
-  ba      0xfff00500
+  addi    %r1,%r1,-64
+  stmw    %r0,-128(%r1)
+  addi    %r1,%r1,-128
+  mfsrr0  %r31
+  mfsrr1  %r30
+  mfcr    %r29
+  mflr    %r28
+  mfctr   %r27
+  stmw    %r27,-20(%r1)
+  addi    %r1,%r1,-64
+  mfmsr   %r5
+  ori     %r5,%r5,0x3032  // enable: floating point, machine check, instruction and data translation, recoverable interrupts
+  mtmsr   %r5
+  isync
+  bl      _irq_hook
+  addi    %r1,%r1,64
+  lmw     %r27,-20(%r1)
+  mtctr   %r27
+  mtlr    %r28
+  mtcrf   0xff,%r29
+  mtsrr1  %r30
+  mtsrr0  %r31
+  lmw     %r2,8(%r1)
+  lwz     %r0,0(%r1)
+  lwz     %r1,4(%r1)
+  addi    %r1,%r1,64
+  rfi
 
   .org 0x600
 alignment_exception_vector:
@@ -193,25 +219,25 @@ _start:
 .size _start,.-_start
 
 setup_cache:
-  mfspr	  %r3,1008        // hid0
-	ori	    %r3,%r3,0x0800  // icfi: instruction cache flash invalidate 
-	mtspr	  1008,%r3
-	xori	  %r3,%r3,0x0800
-	mtspr	  1008,%r3
-	ori	    %r3,%r3,0x8000  // ice: instruction cache enable
-	isync	
-	mtspr	  1008,%r3
-	isync	
-	mfspr	  %r3,1008
-	ori	    %r3,%r3,0x0400  // dcfi: data cache flash invalidate
-	mtspr	  1008,%r3
-	xori	  %r3,%r3,0x0400
-	mtspr	  1008,%r3
-	ori	    %r3,%r3,0x4000  // dce: data cache enable
-	sync
-	mtspr	  1008,%r3
-	sync	
-	blr
+  mfspr   %r3,1008        // hid0
+  ori     %r3,%r3,0x0800  // icfi: instruction cache flash invalidate 
+  mtspr   1008,%r3
+  xori    %r3,%r3,0x0800
+  mtspr   1008,%r3
+  ori     %r3,%r3,0x8000  // ice: instruction cache enable
+  isync 
+  mtspr   1008,%r3
+  isync 
+  mfspr   %r3,1008
+  ori     %r3,%r3,0x0400  // dcfi: data cache flash invalidate
+  mtspr   1008,%r3
+  xori    %r3,%r3,0x0400
+  mtspr   1008,%r3
+  ori     %r3,%r3,0x4000  // dce: data cache enable
+  sync
+  mtspr   1008,%r3
+  sync  
+  blr
 
 setup_model3_control_registers:
   li      %r3,0x4e

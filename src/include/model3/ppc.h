@@ -3,17 +3,6 @@
 
 #include <stdint.h>
 
-extern uint32_t ppc_get_pvr(void);
-extern uint32_t ppc_get_hid0(void);
-extern uint32_t ppc_get_hid1(void);
-extern uint32_t ppc_get_msr(void);
-extern uint32_t ppc_get_dbatu(int n);
-extern uint32_t ppc_get_dbatl(int n);
-extern uint32_t ppc_get_ibatu(int n);
-extern uint32_t ppc_get_ibatl(int n);
-extern uint32_t ppc_get_sdr1(void);
-extern uint32_t ppc_get_sr(int n);
-
 static inline void ppc_stwbrx(uint32_t addr, uint32_t data)
 {
   asm volatile
@@ -38,5 +27,18 @@ static inline uint32_t ppc_lwbrx(uint32_t addr)
   );
   return data;
 }
+
+extern uint32_t ppc_get_pvr(void);
+extern uint32_t ppc_get_hid0(void);
+extern uint32_t ppc_get_hid1(void);
+extern uint32_t ppc_get_msr(void);
+extern void ppc_set_msr(void);
+extern uint32_t ppc_get_dbatu(int n);
+extern uint32_t ppc_get_dbatl(int n);
+extern uint32_t ppc_get_ibatu(int n);
+extern uint32_t ppc_get_ibatl(int n);
+extern uint32_t ppc_get_sdr1(void);
+extern uint32_t ppc_get_sr(int n);
+extern void ppc_set_external_interrupt_enable(int on);
 
 #endif  // INCLUDED_MODEL3_PPC_H

@@ -35,6 +35,18 @@ uint32_t ppc_get_msr(void)
   return val;
 }
 
+void ppc_set_msr(uint32_t msr)
+{
+  asm
+  (
+    "mtmsr %0;"
+    "isync"
+    :
+    : "r" (msr)
+    :
+  );
+}
+
 uint32_t ppc_get_dbatu(int n)
 {
   uint32_t val;
@@ -99,4 +111,14 @@ uint32_t ppc_get_sr(int n)
   uint32_t val;
   asm ("mfsrin %0,%1" : "=r" (val) : "r" (((uint32_t) n) << 28) :);
   return val;
+}
+
+void ppc_set_external_interrupt_enable(int on)
+{
+  uint32_t msr = ppc_get_msr();
+  if (on)
+    msr |= 0x8000;
+  else
+    msr &= 0x8000;
+  ppc_set_msr(msr);
 }

@@ -28,6 +28,13 @@ static inline uint32_t ppc_lwbrx(uint32_t addr)
   return data;
 }
 
+static inline uint32_t ppc_get_tbl(void)
+{
+  uint32_t data;
+  asm volatile("mftb %0" : "=r" (data) ::);
+  return data;
+}
+
 extern uint32_t ppc_get_pvr(void);
 extern uint32_t ppc_get_hid0(void);
 extern uint32_t ppc_get_hid1(void);

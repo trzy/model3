@@ -1,6 +1,3 @@
-//TODO: implement support for reading controls
-//TODO: implement a simple menu system to conduct experiments
-
 #include "model3/jtag.h"
 #include "model3/tilegen.h"
 #include "model3/ppc.h"
@@ -75,26 +72,22 @@ static void measure_frame_rate(void)
 {
   volatile uint8_t *led_reg = (uint8_t *) 0xf010001c;
   uint8_t led = 0x01;
-  *led_reg = ~led;
+  *led_reg = ~led;  // LED used to confirm program is running
   
   irq_set_callback(-1, irq_callback);
   irq_enable(1);
   ppc_set_external_interrupt_enable(1);
 
-  /*
   rtc_init();
   int prev_second = rtc_get_time().second;
-  // Wait for second digit to change
   while (rtc_get_time().second == prev_second)
-    ;
+    ; // begin test as soon as second rolls over
   prev_second = rtc_get_time().second;
-  */
   int n0 = s_irq_count[1];
   int n = n0;
   int seconds = 0;
   while (1)
   {
-/*
     struct RTCTime t = rtc_get_time();
     if (t.second != prev_second)
     {
@@ -106,7 +99,6 @@ static void measure_frame_rate(void)
       tilegen_printf_at(32, 7, "FPS : %1.3f", fps);
       tilegen_printf_at(32, 8, "%d/%02d/%02d %02d:%02d:%02d", t.month, t.day, t.year, t.hour, t.minute, t.second);
     }
-*/
     if (n != s_irq_count[1])
     {
       n = s_irq_count[1];

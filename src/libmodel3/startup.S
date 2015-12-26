@@ -1,3 +1,13 @@
+/*
+ * This module is loaded into RAM and contains the vector table as well the 
+ * startup code that performs basic initial set up before transferring control
+ * to main().
+ *
+ * TODO:
+ * -----
+ * - The TLB miss handlers have not yet been confirmed to work.
+ */
+
   .section ".text.startup.model3"
   
   .extern _stack
@@ -120,8 +130,8 @@ instruction_translation_miss_exception_vector:
   mfsrin  %r2,%r3
   rlwinm  %r1,%r2,8,0,19
   ori     %r1,%r1,0x0112  // set R, M, PP=RW
-  mtspr   982,%r1
-  mfsrr1  %r2             // rpa
+  mtspr   982,%r1         // rpa
+  mfsrr1  %r2
   mtcrf   0x80,%r2
   tlbld   %r3
   rfi

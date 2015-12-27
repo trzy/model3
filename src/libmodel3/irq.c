@@ -1,9 +1,9 @@
 #include "model3/irq.h"
 
-static irq_callback_t s_callbacks[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
+static irq_callback_t s_callback;
 static uint8_t s_irq_mask = 0;
 
-uint8_t irq_get_pending_mask(void)
+uint8_t irq_get_pending(void)
 {
   volatile uint8_t *irq_reg = (uint8_t *) 0xf0100018;
   return *irq_reg;
@@ -11,13 +11,8 @@ uint8_t irq_get_pending_mask(void)
 
 void _irq_hook(void)
 {
-  uint8_t pending = irq_get_pending_mask();
-  for (int i = 0; i < 8; i++)
-  {
-    if ((pending & 1) && s_callbacks[i])
-      s_callbacks[i](i);
-    pending >>= 1;
-  }
+  if (s_callback)
+    s_callback(irq_get_pending());
 }
 
 static void write_irq_mask_reg(uint8_t mask)
@@ -26,25 +21,21 @@ static void write_irq_mask_reg(uint8_t mask)
   *irq_mask_reg = mask;
 }
 
-void irq_enable(int irqnum)
+uint8_t irq_enable(uint8_t mask)
 {
-  s_irq_mask |= (irqnum < 0) ? 0xff : (1 << irqnum);
+  s_irq_mask |= mask;
   write_irq_mask_reg(s_irq_mask);
+  return s_irq_mask;
 }
 
-void irq_disable(int irqnum)
+uint8_t irq_disable(uint8_t mask)
 {
-  s_irq_mask &= ~((irqnum < 0) ? 0xff : (1 << irqnum));
+  s_irq_mask &= ~mask;
   write_irq_mask_reg(s_irq_mask);
+  return s_irq_mask;
 }
 
-void irq_set_callback(int irqnum, irq_callback_t callback)
+void irq_set_callback(irq_callback_t callback)
 {
-  if (irqnum < 0)
-  {
-    for (int i = 0; i < 8; i++)
-      s_callbacks[i] = callback;
-  }
-  else if (irqnum < 8)
-    s_callbacks[irqnum] = callback;
+  s_callback = callback;
 }

@@ -1,8 +1,16 @@
+/*
+ * Simple test program. Displays values of some processor-specific registers
+ * and MMU registers to verify that the startup code set them up correctly.
+ * Enables IRQ 0x02 (which appears to be vblank) and attempts to measure the
+ * refresh rate and CPU clock speed.
+ */
+
 #include "model3/jtag.h"
 #include "model3/tilegen.h"
 #include "model3/ppc.h"
 #include "model3/irq.h"
 #include "model3/rtc.h"
+#include "model3/led.h"
 
 static void setup_pci_devices()
 {
@@ -17,7 +25,7 @@ static void setup_pci_devices()
 
 static void setup_unknown_regs()
 {
-  // Real3D?
+  // Real3D? This is done once by VF3.
   volatile uint32_t *regs_9c = (uint32_t *) 0x9c000000;
   regs_9c[0] = 0xfc7f0000;
   regs_9c[1] = 0x04000000;
@@ -57,31 +65,36 @@ static void print_bat(uint32_t batu, uint32_t batl)
 
 static volatile int s_irq_count[8];
 
-void irq_callback(int irqnum)
+void irq_callback(uint8_t pending)
 {
-  ++s_irq_count[irqnum];
-  if (irqnum == 1)
+  for (int i = 0; i < 8; i++)
   {
-    // Ack IRQ until clear
-    while (irq_get_pending_mask() & (1 << irqnum))
-      tilegen_write_reg(0x10, 2);
+    if (pending & (1 << i))
+      ++s_irq_count[i];
+  }
+  if (pending & 0x0f)
+  {
+    // Tilegen IRQs must be acked until they clear
+    for (int i = 0; i < 4; i++)
+    {
+      while (irq_get_pending() & (1 << i))
+        tilegen_write_reg(0x10, (1 << i));
+    }
+  }
+  if (pending & 0xb0)
+  {
+    // These clear on their own
+    while (irq_get_pending() & 0xb0)
+      ;
   }
 }
 
 static void measure_frame_rate(void)
 {
-  volatile uint8_t *led_reg = (uint8_t *) 0xf010001c;
-  uint8_t led = 0x01;
-  *led_reg = ~led;  // LED used to confirm program is running
-  
-  irq_set_callback(-1, irq_callback);
-  irq_enable(1);
-  ppc_set_external_interrupt_enable(1);
-
-  rtc_init();
   int prev_second = rtc_get_time().second;
   while (rtc_get_time().second == prev_second)
     ; // begin test as soon as second rolls over
+  uint32_t tb0 = ppc_get_tbl();
   prev_second = rtc_get_time().second;
   int n0 = s_irq_count[1];
   int n = n0;
@@ -91,18 +104,24 @@ static void measure_frame_rate(void)
     struct RTCTime t = rtc_get_time();
     if (t.second != prev_second)
     {
-      *led_reg = ~led;
-      led = (led >> 1) | ((led & 1) << 7);
+      uint32_t tb = ppc_get_tbl();
+      led_step();
       ++seconds;
       prev_second = t.second;
-      float fps = (float) (n - n0) / seconds;
-      tilegen_printf_at(32, 7, "FPS : %1.3f", fps);
-      tilegen_printf_at(32, 8, "%d/%02d/%02d %02d:%02d:%02d", t.month, t.day, t.year, t.hour, t.minute, t.second);
+      double fps = (float) (n - n0) / seconds;
+      // Compute CPU clock speed assuming a 1:1 processor/bus clock multiplier.
+      // Time base registers tick every 4 bus cycles.
+      double mhz = 4.0 * (tb - tb0) / 1e6;
+      tilegen_printf_at(32, 15, "VBL  : %1.3f Hz", fps);
+      tilegen_printf_at(32, 16, "CPU  : %1.3f MHz", mhz);
+      tilegen_printf_at(32, 18, "%d/%02d/%02d %02d:%02d:%02d", t.month, t.day, t.year, t.hour, t.minute, t.second);
+      tb0 = tb;
     }
     if (n != s_irq_count[1])
     {
       n = s_irq_count[1];
-      tilegen_printf_at(32, 6, "IRQ1: %d", n);
+      for (int i = 0; i < 8; i++)
+        tilegen_printf_at(32, 6 + i, "IRQ%02x: %d", 1 << i, s_irq_count[i]);
     }
   }
 }
@@ -111,6 +130,11 @@ int main(void)
 {
   jtag_init();
   tilegen_init();
+  irq_set_callback(irq_callback);
+  irq_enable(0x02);
+  ppc_set_external_interrupt_enable(1);
+  rtc_init();
+  led_set_default_sequence();
 
   tilegen_printf("\n*** MODEL 3 TEST PROGRAM ***\n");
   tilegen_printf("\tby Bart Trzynadlowski\n\n\n\n");

@@ -119,6 +119,6 @@ void ppc_set_external_interrupt_enable(int on)
   if (on)
     msr |= 0x8000;
   else
-    msr &= 0x8000;
+    msr &= ~0x8000;
   ppc_set_msr(msr);
 }

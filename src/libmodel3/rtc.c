@@ -24,6 +24,7 @@ static uint32_t read_reg(int reg)
 
 static void wait_until_not_busy(void)
 {
+  //TODO: need to preserve high 24 bits here after each read when writing back
   volatile uint32_t cd = read_reg(0xd) | 1; // set hold bit
   write_reg(0xd, cd);
   while ((cd = read_reg(0xd)) & 2)

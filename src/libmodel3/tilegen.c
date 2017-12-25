@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <stdarg.h>
 #include <stdio.h>
+#include <string.h>
 
 #include "charset.h"
 
@@ -129,6 +130,30 @@ void tilegen_printf(const char *fmt, ...)
   vsnprintf(buf, 1024, fmt, vl);
   va_end(vl);
   print(s_cursor.x, s_cursor.y, buf);
+}
+
+void tilegen_clear_line_from(int x, int y)
+{
+  if (x >= 62)
+    return;
+  if (x < 0)
+    x = 0;
+  if (y >= 48 || y < 0)
+    return;
+  uint32_t dest_base = name_table_address(s_text_layer);
+  uint32_t dest_offs = ((y*64) + x) * 2;
+  memset((uint8_t *) (dest_base + dest_offs), 0, (64 - x) * 2);
+}
+
+void tilegen_clear_line(int y)
+{
+  tilegen_clear_line_from(0, y);
+}
+
+void tilegen_clrscr()
+{
+  uint32_t dest_base = name_table_address(s_text_layer);
+  memset((uint8_t *) dest_base, 0, 64 * 48 * 2);
 }
 
 void tilegen_write_reg(int offset, uint32_t data)

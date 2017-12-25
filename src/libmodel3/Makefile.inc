@@ -3,6 +3,7 @@ LIBMODEL3_SRCS =                  \
 	src/libmodel3/crom.S            \
 	src/libmodel3/startup.S         \
 	src/libmodel3/ppc.c             \
+	src/libmodel3/timer.c           \
 	src/libmodel3/jtag.c            \
   src/libmodel3/rtc.c             \
 	src/libmodel3/irq.c             \

@@ -15,5 +15,7 @@ extern void timer_start(struct timer *t, float duration);
 extern float timer_seconds_elapsed(const struct timer *t);
 extern float timer_seconds_remaining(const struct timer *t);
 extern bool timer_expired(const struct timer *t);
+extern void timer_wait_seconds(float seconds);
+extern void timer_wait_ticks(uint64_t ticks);
 
 #endif  // INCLUDED_MODEL3_TIMER_H

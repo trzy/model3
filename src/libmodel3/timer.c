@@ -34,3 +34,19 @@ bool timer_expired(const struct timer *t)
 {
   return ppc_get_tb() >= t->end_ticks;
 }
+
+void timer_wait_seconds(float seconds)
+{
+  struct timer t;
+  timer_start(&t, seconds);
+  while (!timer_expired(&t))
+    ;
+}
+
+void timer_wait_ticks(uint64_t ticks)
+{
+  uint64_t start = ppc_get_tb();
+  uint64_t end = start + ticks;
+  while (ppc_get_tb() < end)
+    ;
+}

@@ -6,8 +6,8 @@
 
 struct timer
 {
-  uint32_t start_ticks;
-  uint32_t end_ticks;
+  uint64_t start_ticks;
+  uint64_t end_ticks;
 };
 
 extern void timer_init();

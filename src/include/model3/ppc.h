@@ -35,11 +35,19 @@ static inline uint32_t ppc_get_tbl(void)
   return data;
 }
 
+static inline uint32_t ppc_get_tbu(void)
+{
+  uint32_t data;
+  asm volatile("mftbu %0" : "=r" (data) ::);
+  return data;
+}
+
+extern uint64_t ppc_get_tb(void);
 extern uint32_t ppc_get_pvr(void);
 extern uint32_t ppc_get_hid0(void);
 extern uint32_t ppc_get_hid1(void);
 extern uint32_t ppc_get_msr(void);
-extern void ppc_set_msr(void);
+extern void ppc_set_msr(uint32_t msr);
 extern uint32_t ppc_get_dbatu(int n);
 extern uint32_t ppc_get_dbatl(int n);
 extern uint32_t ppc_get_ibatu(int n);

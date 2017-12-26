@@ -1,4 +1,9 @@
-#include <stdint.h>
+#include "model3/ppc.h"
+
+uint64_t ppc_get_tb(void)
+{
+  return ((uint64_t) ppc_get_tbu() << 32) | ppc_get_tbl();
+}
 
 uint32_t ppc_get_pvr(void)
 {

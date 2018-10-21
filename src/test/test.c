@@ -14,6 +14,8 @@
 #include "model3/timer.h"
 #include <string.h>
 
+//TODO: convert this to use write_pci_config and if confirmed to be real3d,
+// move into a real3d_init() function
 static void setup_pci_devices()
 {
   uint32_t pci_config = 0xf0800cf8;
@@ -34,6 +36,8 @@ static void setup_unknown_regs()
   regs_9c[2] = 0x00000200;
 }
 
+static uint32_t s_real3d_stat_packet[9];
+
 static uint32_t read_real3d_reg(uint32_t reg_num)
 {
   uint32_t addr = 0x84000000 + (reg_num & 0xf) * 4;
@@ -42,7 +46,11 @@ static uint32_t read_real3d_reg(uint32_t reg_num)
 
 static uint32_t read_real3d_status()
 {
-  return read_real3d_reg(0);
+  for (int i = 0; i < 9; i++)
+  {
+    s_real3d_stat_packet[i] = read_real3d_reg(i);
+  }
+  return s_real3d_stat_packet[0];
 }
 
 static const uint32_t s_scsi_base = 0xc0000000; // Step 1.0
@@ -55,7 +63,7 @@ static volatile uint8_t s_transfer_pending = 0;
 static volatile uint8_t s_scsi_state = 0;
 static bool s_scsi_enable = false;
 
-static uint32_t ReadPCIConfig(uint32_t pci_reg, uint32_t pci_device, uint32_t pci_bus, uint32_t pci_function)
+static uint32_t read_pci_config(uint32_t pci_reg, uint32_t pci_device, uint32_t pci_bus, uint32_t pci_function)
 {
   uint32_t cmd = 0x80000000;
   cmd |= (pci_reg & 0xfc);
@@ -66,7 +74,7 @@ static uint32_t ReadPCIConfig(uint32_t pci_reg, uint32_t pci_device, uint32_t pc
   return ppc_lwbrx(0xf0c00cfc);
 }
 
-static void WritePCIConfig(uint32_t pci_reg, uint32_t pci_device, uint32_t pci_bus, uint32_t pci_function, uint32_t data)
+static void write_pci_config(uint32_t pci_reg, uint32_t pci_device, uint32_t pci_bus, uint32_t pci_function, uint32_t data)
 {
   uint32_t cmd = 0x80000000;
   cmd |= (pci_reg & 0xfc);
@@ -79,15 +87,15 @@ static void WritePCIConfig(uint32_t pci_reg, uint32_t pci_device, uint32_t pci_b
 
 static void scsi_init()
 {
-  const uint32_t lsi53c810a_id = 0x00011000;      // device in high 16 bits, vendor in low 16 bits
-  uint32_t device_and_vendor_id = ReadPCIConfig(0, 0xe, 0, 0);
+  const uint32_t lsi53c810a_id = 0x00011000;        // device in high 16 bits, vendor in low 16 bits
+  uint32_t device_and_vendor_id = read_pci_config(0, 0xe, 0, 0);
   if (device_and_vendor_id == lsi53c810a_id)
   {
-    WritePCIConfig(0x14, 0xe, 0, 0, s_scsi_base); // set device base address
-    WritePCIConfig(0x0c, 0xe, 0, 0, 0xff00);      // cache line size and latency timer
-    WritePCIConfig(4, 0xe, 0, 0, 6);              // enable bus mastering and memory space
-    s_scsi_byte[0x38] = 0xc1;                     // DMODE (DMA Mode) = 0xc1 (16-transfer burst, manual start mode)
-    s_scsi_byte[0x39] = s_scsi_byte[0x39] | 0x08; // DIEN (DMA Interrupt Enable) |= 0x08 (enable single-step interrupt)
+    write_pci_config(0x14, 0xe, 0, 0, s_scsi_base); // set device base address
+    write_pci_config(0x0c, 0xe, 0, 0, 0xff00);      // cache line size and latency timer
+    write_pci_config(4, 0xe, 0, 0, 6);              // enable bus mastering and memory space
+    s_scsi_byte[0x38] = 0xc1;                       // DMODE (DMA Mode) = 0xc1 (16-transfer burst, manual start mode)
+    s_scsi_byte[0x39] = s_scsi_byte[0x39] | 0x08;   // DIEN (DMA Interrupt Enable) |= 0x08 (enable single-step interrupt)
   }
 }
 
@@ -382,12 +390,27 @@ static void test_refresh_rate(struct timer *test_timer)
 
 static void test_real3d_status_bit(struct timer *test_timer)
 {
+  // Print an example of a stat packet
+  read_real3d_status();
+  tilegen_printf_at(2, 5, "Stat Packet\n");
+  tilegen_printf("  -----------\n");
+  for (int i = 0; i < 9; i++)
+  {
+    tilegen_printf("  %d=%08x\n", i, s_real3d_stat_packet[i]);
+  }
+  tilegen_printf("\n");
+  
+  // Conduct frame timing test
+  tilegen_printf("  Frame Timing Test\n");
+  tilegen_printf("  -----------------\n\n");
+  
   struct timer timeout;
   timer_start(&timeout, 1);
+  
   //while (!poll_timer(test_timer))
   {
     timer_wait_seconds(0.5);
-    tilegen_printf_at(2, 5, "Beginning test. Hold on to your butts!\n\n");
+    tilegen_printf("  Beginning test. Hold on to your butts!\n\n");
     
     // Try writing something to culling RAM
     for (int i = 0; i < 2; i++)

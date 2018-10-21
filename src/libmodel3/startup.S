@@ -140,12 +140,16 @@ instruction_translation_miss_exception_vector:
 // Simulate a page table search and map physical page 1:1 with effective
 // address that caused the miss. RAM and ROM are mapped through BAT registers,
 // so we assume this is some sort of non-cached hardware address and set WIMG.
+// Note that according to Sec. 5.2.4.1.1 (pg. 5-5) of "Programming Environments
+// Manual for 32-bit Implementations of the PowerPC Architecture", W is
+// meaningless when I=1. VF3 has been observed to set both R and C. It is
+// unclear to me whether these affect processor behavior.
 data_load_translation_miss_exception_vector:
-  mfspr   %r3,976         // dmiss
+  mfspr   %r3,976         // r3 <- dmiss
   mfsrin  %r2,%r3
   rlwinm  %r1,%r2,8,0,19
-  ori     %r1,%r1,0x017a  // set R, WIMG, PP=RW
-  mtspr   982,%r1         // rpa
+  ori     %r1,%r1,0x01fa  // set R, C, WIMG, PP=RW
+  mtspr   982,%r1         // rpa <- r1
   mfsrr1  %r2
   mtcrf   0x80,%r2
   tlbld   %r3
@@ -153,11 +157,11 @@ data_load_translation_miss_exception_vector:
 
   .org 0x1200
 data_store_translation_miss_exception_vector:
-  mfspr   %r3,976         // dmiss
+  mfspr   %r3,976         // r3 <- dmiss
   mfsrin  %r2,%r3
   rlwinm  %r1,%r2,8,0,19
   ori     %r1,%r1,0x01fa  // set R, C, WIMG, PP=RW
-  mtspr   982,%r1         // rpa
+  mtspr   982,%r1         // rpa <- r1
   mfsrr1  %r2
   mtcrf   0x80,%r2
   tlbld   %r3
@@ -367,42 +371,26 @@ setup_bat_regs:
   lis     %r3,0xf0000000@h
   ori     %r3,%r3,0x0000003a
   mtspr   541,%r3
-
-  // 0x90000000-0x9fffffff
-  lis     %r3,0x90000000@h
-  ori     %r3,%r3,0x00001fff
-  mtspr   542,%r3
-  lis     %r3,0x90000000@h
-  ori     %r3,%r3,0x0000003a
-  mtspr   543,%r3
-/*
   lis     %r3,0xc0000000@h
   ori     %r3,%r3,0x00001fff
   mtspr   542,%r3
   lis     %r3,0xc0000000@h
   ori     %r3,%r3,0x0000003a
   mtspr   543,%r3
-*/
   isync
   blr
 
 // Set up a dummy paging system where no page table actually exists and TLB is
 // loaded by exception handlers with pages that map 1:1 back to physical memory
 setup_page_translation:
-  lis     %r3,0x20ff8000@h  // N=0 (execution allowed)
-  ori     %r3,%r3,0x20ff8000@l
-  li      %r4,0             // sr0
-  mtsrin  %r3,%r4
-  lis     %r4,0xf0000000@h  // sr15
-  mtsrin  %r3,%r4
-  lis     %r3,0x30ff8000@h  // N=1 (no execution)
-  ori     %r3,%r3,0x30ff8000@l
-  lis     %r4,0x10000000@h  // sr1
-  lis     %r5,0xf0000000@h  // sr15
-.sr_loop:                   // load sr1..sr14
-  mtsrin  %r3,%r4
+  lis     %r3,(.segment_registers-4)@h
+  ori     %r3,%r3,(.segment_registers-4)@l
+  li      %r4,0             // start segment register index at 0
+.sr_loop:
+  lwzu    %r5,4(%r3)        // load value from table
+  mtsrin  %r5,%r4           // r5 -> sr[r4]
   addis   %r4,%r4,0x10000000@h
-  cmp     cr0,%r4,%r5
+  cmpi    cr0,%r4,0         // finished with all 16 registers?
   bne     .sr_loop
   lis     %r3,0xff800000@h  // no page table actually exists here
   sync
@@ -420,6 +408,24 @@ setup_page_translation:
   bne     .tlb_loop
   isync
   blr
+  
+.segment_registers:
+  .long 0x20ff8001  // sr0  T=0 Ks=0 Kp=1 N=0 (user-state protection, executable)
+  .long 0x30ff8041  // sr1  T=0 Ks=0 Kp=1 N=1 (user state protection, not executable)
+  .long 0x30ff8041  // sr2  T=0 Ks=0 Kp=1 N=1
+  .long 0x30ff8041  // sr3  T=0 Ks=0 Kp=1 N=1
+  .long 0x30ff8041  // sr4  T=0 Ks=0 Kp=1 N=1
+  .long 0x30ff8041  // sr5  T=0 Ks=0 Kp=1 N=1
+  .long 0x30ff8041  // sr6  T=0 Ks=0 Kp=1 N=1
+  .long 0x30ff8041  // sr7  T=0 Ks=0 Kp=1 N=1
+  .long 0x30ff8021  // sr8  T=0 Ks=0 Kp=1 N=1
+  .long 0x30ff8021  // sr9  T=0 Ks=0 Kp=1 N=1
+  .long 0x30ff8021  // sr10 T=0 Ks=0 Kp=1 N=1
+  .long 0x30ff8021  // sr11 T=0 Ks=0 Kp=1 N=1
+  .long 0x30ff8031  // sr12 T=0 Ks=0 Kp=1 N=1
+  .long 0x30ff8031  // sr13 T=0 Ks=0 Kp=1 N=1
+  .long 0x30ff8031  // sr14 T=0 Ks=0 Kp=1 N=1
+  .long 0x20ff8011  // sr15 T=0 Ks=0 Kp=1 N=0
 
 // r3: Start address
 // r4: End address

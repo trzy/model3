@@ -1,4 +1,5 @@
 #include "model3/irq.h"
+#include "model3/dma.h"
 
 static irq_callback_t s_callback;
 static uint8_t s_irq_mask = 0;
@@ -11,6 +12,10 @@ uint8_t irq_get_pending(void)
 
 void _irq_hook(void)
 {
+  // Handle SCSI interrupt
+  dma_irq_handler();
+
+  // Handle all other interrupts
   if (s_callback)
     s_callback(irq_get_pending());
 }

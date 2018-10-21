@@ -7,6 +7,7 @@ LIBMODEL3_SRCS =                  \
 	src/libmodel3/jtag.c            \
   src/libmodel3/rtc.c             \
 	src/libmodel3/irq.c             \
+	src/libmodel3/dma.c             \
 	src/libmodel3/led.c             \
 	src/libmodel3/tilegen.c         \
 	src/libmodel3/newlib_stubs.c

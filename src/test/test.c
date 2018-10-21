@@ -55,6 +55,42 @@ static volatile uint8_t s_transfer_pending = 0;
 static volatile uint8_t s_scsi_state = 0;
 static bool s_scsi_enable = false;
 
+static uint32_t ReadPCIConfig(uint32_t pci_reg, uint32_t pci_device, uint32_t pci_bus, uint32_t pci_function)
+{
+  uint32_t cmd = 0x80000000;
+  cmd |= (pci_reg & 0xfc);
+  cmd |= ((pci_device << 11) & 0xf800);
+  cmd |= ((pci_bus << 16) & 0x00ff0000);
+  cmd |= ((pci_function << 8) & 0x700);
+  ppc_stwbrx(0xf0800cf8, cmd);
+  return ppc_lwbrx(0xf0c00cfc);
+}
+
+static void WritePCIConfig(uint32_t pci_reg, uint32_t pci_device, uint32_t pci_bus, uint32_t pci_function, uint32_t data)
+{
+  uint32_t cmd = 0x80000000;
+  cmd |= (pci_reg & 0xfc);
+  cmd |= ((pci_device << 11) & 0xf800);
+  cmd |= ((pci_bus << 16) & 0xff0000);
+  cmd |= ((pci_function << 8) & 0x700);
+  ppc_stwbrx(0xf0800cf8, cmd);
+  ppc_stwbrx(0xf0c00cfc, data);
+}
+
+static void scsi_init()
+{
+  const uint32_t lsi53c810a_id = 0x00011000;      // device in high 16 bits, vendor in low 16 bits
+  uint32_t device_and_vendor_id = ReadPCIConfig(0, 0xe, 0, 0);
+  if (device_and_vendor_id == lsi53c810a_id)
+  {
+    WritePCIConfig(0x14, 0xe, 0, 0, s_scsi_base); // set device base address
+    WritePCIConfig(0x0c, 0xe, 0, 0, 0xff00);      // cache line size and latency timer
+    WritePCIConfig(4, 0xe, 0, 0, 6);              // enable bus mastering and memory space
+    s_scsi_byte[0x38] = 0xc1;                     // DMODE (DMA Mode) = 0xc1 (16-transfer burst, manual start mode)
+    s_scsi_byte[0x39] = s_scsi_byte[0x39] | 0x08; // DIEN (DMA Interrupt Enable) |= 0x08 (enable single-step interrupt)
+  }
+}
+
 // If interrupt occurred due to INT/INTFLY, handle it and return 0, otherwise
 // return DSTAT
 static uint8_t get_interrupt_reason()
@@ -421,21 +457,24 @@ static void test_real3d_status_bit(struct timer *test_timer)
 
 static void test_scsi_dma(struct timer *test_timer)
 {
+  scsi_init();
+  
   s_scsi_enable = true;
   
-  uint32_t src[16] = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 };
-  uint32_t dest[16];
+  uint32_t src1[16] = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 };
+  uint32_t src2[24] = { 11, 12, 13, 14, 15, 16, 17, 18, 19, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124 };
+  uint32_t dest[24];
   memset(dest, 0, sizeof(dest));
   
-  int result1 = memcmp(src, dest, sizeof(src));
+  int result1 = memcmp(src1, dest, sizeof(src1));
   tilegen_printf_at(2, 5, "sanity test = %s\n", result1 == 0 ? "FAILED" : "OK");
-  scsi_blocking_dma_copy((uint32_t) dest, src, 16, false);
-  int result2 = memcmp(src, dest, sizeof(src));
+  scsi_blocking_dma_copy((uint32_t) dest, src1, 16, false);
+  int result2 = memcmp(src1, dest, sizeof(src1));
   tilegen_printf("  copy #1     = %s\n", result2 == 0 ? "OK" : "FAILED");
   memset(dest, 0, sizeof(dest));
-  scsi_blocking_dma_copy((uint32_t) dest, src, 16, false);
-  int result3 = memcmp(src, dest, sizeof(src));
-  tilegen_printf("  copy #2     = %s\n", result2 == 0 ? "OK" : "FAILED");
+  scsi_blocking_dma_copy((uint32_t) dest, src2, 24, false);
+  int result3 = memcmp(src2, dest, sizeof(src2));
+  tilegen_printf("  copy #2     = %s\n", result3 == 0 ? "OK" : "FAILED");
   
   s_scsi_enable = false;
   
@@ -465,9 +504,9 @@ int main(void)
 
   struct test_function tests[] =
   {
-    { "test_refresh_rate",      test_refresh_rate,      10 },
-    { "test_real3d_status_bit", test_real3d_status_bit, 10 },
+    //{ "test_refresh_rate",      test_refresh_rate,      10 },
     { "test_scsi_dma",          test_scsi_dma,          10 },
+    { "test_real3d_status_bit", test_real3d_status_bit, 10 },
     { 0, 0, 0 }
   };
   

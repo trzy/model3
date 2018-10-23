@@ -10,6 +10,7 @@ LIBMODEL3_SRCS =                  \
 	src/libmodel3/dma.c             \
 	src/libmodel3/led.c             \
 	src/libmodel3/tilegen.c         \
+	src/libmodel3/real3d.c          \
 	src/libmodel3/newlib_stubs.c
 
 DEPENDENCIES += $(LIBMODEL3_SRCS)

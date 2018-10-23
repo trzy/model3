@@ -13,29 +13,8 @@
 #include "model3/led.h"
 #include "model3/dma.h"
 #include "model3/timer.h"
+#include "model3/real3d.h"
 #include <string.h>
-
-//TODO: convert this to use write_pci_config and if confirmed to be real3d,
-// move into a real3d_init() function
-static void setup_pci_devices()
-{
-  uint32_t pci_config = 0xf0800cf8;
-  uint32_t pci_data = 0xf0c00cfc;
-  // Real3D
-  ppc_stwbrx(pci_config, 0x80006804);
-  ppc_stwbrx(pci_data, 0xffff0042);
-  ppc_stwbrx(pci_config, 0x80006810);
-  ppc_stwbrx(pci_data, 0x80000000);
-}
-
-static void setup_unknown_regs()
-{
-  // Real3D? This is done once by VF3.
-  volatile uint32_t *regs_9c = (uint32_t *) 0x9c000000;
-  regs_9c[0] = 0xfc7f0000;
-  regs_9c[1] = 0x04000000;
-  regs_9c[2] = 0x00000200;
-}
 
 static uint32_t s_real3d_stat_packet[9];
 
@@ -225,17 +204,77 @@ static void test_refresh_rate(struct timer *test_timer)
   }
 }
 
+#define STR2(x) #x
+#define STR(x) STR2(x)
+
+#define INCBIN(name, file) \
+    __asm__(".section .data\n" \
+            ".global incbin_" STR(name) "_start\n" \
+            "/*.type incbin_" STR(name) "_start, @object*/\n" \
+            ".balign 8\n" \
+            "incbin_" STR(name) "_start:\n" \
+            ".incbin \"src/test/" file "\"\n" \
+            \
+            ".global incbin_" STR(name) "_end\n" \
+            "/*.type incbin_" STR(name) "_end, @object*/\n" \
+            ".balign 1\n" \
+            "incbin_" STR(name) "_end:\n" \
+            ".byte 0\n" \
+    ); \
+    extern const __attribute__((aligned(8))) void* incbin_ ## name ## _start; \
+    extern const void* incbin_ ## name ## _end; \
+
+INCBIN(8c100000, "data_8c100000.bin");
+//INCBIN(8c140000, "data_8c140000.bin");
+//INCBIN(8c180000, "data_8c180000.bin");
+//INCBIN(8c1c0000, "data_8c1c0000.bin");
+INCBIN(8e000000, "data_8e000000.bin");
+INCBIN(8e000400, "data_8e000400.bin");
+INCBIN(8e001400, "data_8e001400.bin");  // modified list to include early termination
+INCBIN(94000000, "data_94000000.bin");
+
 static void test_real3d_status_bit(struct timer *test_timer)
 {
+  // Initialize Real3D device
+  tilegen_printf_at(2, 5, "Initializing Real3D... ");
+  real3d_init();
+  for (int i = 0; i < 3; i++)
+  {
+    wait_for_vbl();
+    real3d_flush();
+  }
+  tilegen_printf("OK\n\n");
+  
   // Print an example of a stat packet
   read_real3d_status();
-  tilegen_printf_at(2, 5, "Stat Packet\n");
+  tilegen_printf("  Stat Packet\n");
   tilegen_printf("  -----------\n");
   for (int i = 0; i < 9; i++)
   {
     tilegen_printf("  %d=%08x\n", i, s_real3d_stat_packet[i]);
   }
   tilegen_printf("\n");
+  
+  
+  // Initialize memory
+  dma_blocking_copy(0x8c100000, (uint32_t *) &incbin_8c100000_start, (uint32_t *) &incbin_8c100000_end - (uint32_t *) &incbin_8c100000_start, false);
+  real3d_flush();
+  wait_for_vbl();
+  wait_for_vbl();
+  for (int i = 0; i < 2; i++)
+  {
+    dma_blocking_copy(0x8e000000, (uint32_t *) &incbin_8e000000_start, (uint32_t *) &incbin_8e000000_end - (uint32_t *) &incbin_8e000000_start, false);
+    dma_blocking_copy(0x8e000400, (uint32_t *) &incbin_8e000400_start, (uint32_t *) &incbin_8e000400_end - (uint32_t *) &incbin_8e000400_start, false);
+    dma_blocking_copy(0x8e001400, (uint32_t *) &incbin_8e001400_start, (uint32_t *) &incbin_8e001400_end - (uint32_t *) &incbin_8e001400_start, false);
+    real3d_flush();
+    wait_for_vbl();
+    wait_for_vbl();
+  }
+  dma_blocking_copy(0x94000000, (uint32_t *) &incbin_94000000_start, (uint32_t *) &incbin_94000000_end - (uint32_t *) &incbin_94000000_start, false);
+  real3d_flush();
+  wait_for_vbl();
+  wait_for_vbl();
+  wait_for_vbl();
   
   // Conduct frame timing test
   tilegen_printf("  Frame Timing Test\n");
@@ -250,6 +289,7 @@ static void test_real3d_status_bit(struct timer *test_timer)
     tilegen_printf("  Beginning test. Hold on to your butts!\n\n");
     
     // Try writing something to culling RAM
+    /*
     for (int i = 0; i < 2; i++)
     {
       tilegen_printf("  Writing culling RAM #%d...\n", i + 1);
@@ -260,6 +300,7 @@ static void test_real3d_status_bit(struct timer *test_timer)
       tilegen_printf("  Waiting one frame...\n");
       wait_for_vbl();
     }
+    */
     
     tilegen_printf("\n  Beginning frame measurement.\n\n");
     
@@ -361,7 +402,7 @@ int main(void)
   struct test_function tests[] =
   {
     //{ "test_refresh_rate",      test_refresh_rate,      10 },
-    { "test_scsi_dma",          test_scsi_dma,          10 },
+    //{ "test_scsi_dma",          test_scsi_dma,          10 },
     { "test_real3d_status_bit", test_real3d_status_bit, 10 },
     { 0, 0, 0 }
   };

@@ -151,7 +151,8 @@ void dma_blocking_copy(uint32_t dest_addr, uint32_t *src, uint32_t num_words, bo
 
 bool dma_init()
 {
-  s_scsi_enable = false;
+  if (s_scsi_enable)
+    return false; // already enabled
   const uint32_t lsi53c810a_id = 0x00011000;      // device in high 16 bits, vendor in low 16 bits
   uint32_t device_and_vendor_id = read_pci_config(0, 0xe, 0, 0);
   if (device_and_vendor_id != lsi53c810a_id)

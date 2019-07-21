@@ -1,0 +1,371 @@
+Frame Timing
+============
+
+Effect of Ping Pong Bit Timing on DMA Transfers
+-----------------------------------------------
+
+Assuming ping pong bit flip occurs a fixed time after VBL, I adjusted the time
+taken and observed its effect on the scheduling of DMA transfers. This is to
+check whether any games are using the timing delay (via decrementer exception)
+to schedule transfers after they know the bit has flipped.
+
+The % figure indicates the amount of time elapsed since VBL as a % of total
+frame time. That is, 0% at VBL, 100% at the next VBL.
+
+LA Machineguns appears to be waiting for the DEC timeout period before updating
+polygon RAM. It then syncs to VBL again before uploading data to ping pong RAM.
+
+  LA Machineguns attract mode, ping pong occurring at t=75%:
+  
+    *** VBLANK ***
+    Real3D DMA copy (PC=0000391C, LR=000039D0): 0075779C -> 8E000000, C0 (byte reversed)    5.13% 2462724522
+    Real3D DMA copy (PC=0000391C, LR=000039D0): 00757884 -> 8E0000C0, 28 (byte reversed)    5.15% 2462724660
+    Real3D DMA copy (PC=0000391C, LR=000039D0): 007578BC -> 8E000100, C0 (byte reversed)    5.16% 2462724805
+    Real3D DMA copy (PC=0000391C, LR=000039D0): 007579A4 -> 8E0001C0, 28 (byte reversed)    5.18% 2462724943
+    Real3D DMA copy (PC=0000391C, LR=00003968): 00740504 -> 8E00D800, 270   5.20% 2462725107
+    Real3D DMA copy (PC=0000391C, LR=00003968): 0073BCFC -> 8E00DA70, 4800  5.22% 2462725251
+    Real3D DMA copy (PC=0000391C, LR=00003968): 0074B784 -> 8E012270, 2B20  5.23% 2462725395
+    Real3D DMA copy (PC=0000391C, LR=00003968): 00758524 -> 8E001800, 1FC4  5.26% 2462725601
+    Real3D DMA copy (PC=0000391C, LR=00003968): 00740778 -> 8E003800, 23F0  5.27% 2462725742
+    Real3D DMA copy (PC=0000391C, LR=00003968): 007FDF50 -> 88000000, 4     5.29% 2462725892
+    DEC exception 77.3%
+    Real3D DMA copy (PC=0000391C, LR=00003968): 0074A780 -> 98001000, 100   81.57% 2463361527
+    *** VBLANK ***
+
+  LA Machineguns, t=50%:
+  
+    *** VBLANK ***
+    Real3D DMA copy (PC=0000391C, LR=000039D0): 0075779C -> 8E000000, C0 (byte reversed)    2.84% 2668726915
+    Real3D DMA copy (PC=0000391C, LR=000039D0): 00757884 -> 8E0000C0, 28 (byte reversed)    2.86% 2668727053
+    Real3D DMA copy (PC=0000391C, LR=000039D0): 007578BC -> 8E000100, C0 (byte reversed)    2.88% 2668727198
+    Real3D DMA copy (PC=0000391C, LR=000039D0): 007579A4 -> 8E0001C0, 28 (byte reversed)    2.89% 2668727336
+    Real3D DMA copy (PC=0000391C, LR=00003968): 00740504 -> 8E00D800, 270   2.91% 2668727500
+    Real3D DMA copy (PC=0000391C, LR=00003968): 0073BCFC -> 8E00DA70, 4800  2.93% 2668727644
+    Real3D DMA copy (PC=0000391C, LR=00003968): 0074B784 -> 8E012270, 29D0  2.95% 2668727788
+    Real3D DMA copy (PC=0000391C, LR=00003968): 00758524 -> 8E001800, 1FC4  2.97% 2668727994
+    Real3D DMA copy (PC=0000391C, LR=00003968): 00740778 -> 8E003800, 22D8  2.99% 2668728135
+    Real3D DMA copy (PC=0000391C, LR=00003968): 007FDF50 -> 88000000, 4     3.01% 2668728285
+    DEC exception 54.7%
+    Real3D DMA copy (PC=0000391C, LR=00003968): 0074A780 -> 98001000, 100   59.11% 2669195789
+    *** VBLANK ***
+    
+  LA Machineguns, t=25%:
+  
+    *** VBLANK ***
+    Real3D DMA copy (PC=0000391C, LR=000039D0): 0075779C -> 8E000000, C0 (byte reversed)    2.84% 3236414005
+    Real3D DMA copy (PC=0000391C, LR=000039D0): 00757884 -> 8E0000C0, 28 (byte reversed)    2.86% 3236414143
+    Real3D DMA copy (PC=0000391C, LR=000039D0): 007578BC -> 8E000100, C0 (byte reversed)    2.88% 3236414288
+    Real3D DMA copy (PC=0000391C, LR=000039D0): 007579A4 -> 8E0001C0, 28 (byte reversed)    2.89% 3236414426
+    Real3D DMA copy (PC=0000391C, LR=00003968): 00740504 -> 8E00D800, 270   2.91% 3236414590
+    Real3D DMA copy (PC=0000391C, LR=00003968): 0073BCFC -> 8E00DA70, 4800  2.93% 3236414734
+    Real3D DMA copy (PC=0000391C, LR=00003968): 0074B784 -> 8E012270, 2AF0  2.95% 3236414878
+    Real3D DMA copy (PC=0000391C, LR=00003968): 00758524 -> 8E001800, 1FC4  2.97% 3236415084
+    Real3D DMA copy (PC=0000391C, LR=00003968): 00740778 -> 8E003800, 23C8  2.99% 3236415225
+    Real3D DMA copy (PC=0000391C, LR=00003968): 007FDF50 -> 88000000, 4     3.01% 3236415375
+    DEC exception 32.0%
+    Real3D DMA copy (PC=0000391C, LR=00003968): 0074A780 -> 98001000, 100   36.38% 3236693495 
+
+
+Sensitivity to Timing
+---------------------
+
+Some games are very sensitive to the time at which the bit flips after VBL. The
+precise threshold at which games begin to work has not been measured but
+perhaps could be determined using a candidate game that transfers data
+particularly late in its frame.
+
+Note these tests were performed with PowerPCFrequency=50. Increasing the
+frequency allows frame timing to be relaxed.
+
+The percentage expressed here is approximate because of how the main frame
+loop is timed.
+
+  Virtua Striker 2 '98 (vs298):
+    - Fails when t = 75% or less. Flickering of 3D graphics indicating frames
+      that failed to be uploaded.
+    - At t = 80%, mostly stable but some flickering observed.
+    - At t = 90%, appears stable. (Needs further testing.)
+    
+  Scud Race Plus:
+    - Fails when when t=50% after VBL. No 3D graphics displayed.
+    - Works when t=75% and above.
+    
+    Failure case example, t=50%:
+    
+      *** VBLANK ***
+      DEC exception 54.5%
+      53C810: Move Memory 0019F000 -> 98027410, 13CD4 89.49%
+      53C810: Move Memory 000E0010 -> 8E000000, 740   92.44%
+      53C810: Move Memory 000EAA10 -> 8E00AA00, 60    92.45%
+      53C810: Move Memory 000EB040 -> 8E00B030, 11A0  92.47%
+      53C810: Move Memory 000E2D10 -> 8E002D00, 1108  92.49%
+      53C810: Move Memory 000F36B0 -> 8E0136A0, 53C   92.52%
+      53C810: Move Memory 000F62B0 -> 8E0162A0, 60    92.54%
+      53C810: Move Memory 001EFEA8 -> 88000000, 4     92.60%
+      *** VBLANK ***
+      DEC exception 54.5%
+      53C810: Move Memory 0019F000 -> 98027410, 13CD4 89.52%
+      53C810: Move Memory 000E0010 -> 8E000000, 740   92.47%
+      53C810: Move Memory 000EAA10 -> 8E00AA00, 60    92.48%
+      53C810: Move Memory 000EB040 -> 8E00B030, 11A0  92.50%
+      53C810: Move Memory 000E2D10 -> 8E002D00, 1108  92.53%
+      53C810: Move Memory 000F36B0 -> 8E0136A0, 53C   92.55%
+      53C810: Move Memory 000F62B0 -> 8E0162A0, 60    92.57%
+      53C810: Move Memory 001EFEA8 -> 88000000, 4     92.63%
+      *** VBLANK ***
+      
+    Success case example, t=75%:
+
+      *** VBLANK ***
+      53C810: Move Memory 0019F000 -> 98027410, 13CD4 12.74%
+      53C810: Move Memory 000E0010 -> 8E000000, 740   15.68%
+      53C810: Move Memory 000EAA10 -> 8E00AA00, 60    15.68%
+      53C810: Move Memory 000EB040 -> 8E00B030, 11A0  15.71%
+      53C810: Move Memory 000E2D10 -> 8E002D00, 1108  15.73%
+      53C810: Move Memory 000F36B0 -> 8E0136A0, 530   15.75%
+      53C810: Move Memory 000F62B0 -> 8E0162A0, 60    15.78%
+      53C810: Move Memory 001EFEA8 -> 88000000, 4     15.84%
+      DEC exception 77.1%
+      *** VBLANK ***
+      53C810: Move Memory 0019F000 -> 98027410, 13CD4 12.88%
+      53C810: Move Memory 000E0010 -> 8E000000, 740   15.82%
+      53C810: Move Memory 000EAA10 -> 8E00AA00, 60    15.82%
+      53C810: Move Memory 000EB040 -> 8E00B030, 11A0  15.85%
+      53C810: Move Memory 000E2D10 -> 8E002D00, 1108  15.87%
+      53C810: Move Memory 000F36B0 -> 8E0136A0, 530   15.89%
+      53C810: Move Memory 000F62B0 -> 8E0162A0, 60    15.92%
+      53C810: Move Memory 001EFEA8 -> 88000000, 4     15.98%
+      DEC exception 77.1%
+      *** VBLANK ***
+
+    Transfers are identical in both cases but they occur at the wrong time.
+    
+    
+Is Ping Pong Bit Flip Tied to Flush Command?
+--------------------------------------------
+
+Assuming that the time between ping pong bit flips is a fixed constant (which
+has by no means been conclusively demonstrated), there is a question as to 
+what effect, if any, the flush command has. If no flush occurs, does the ping
+pong bit still get flipped?
+
+If the flush is a completion signal sampled at the next potential flip time,
+then we would expect the bit not to flip if the signal was not raised. However,
+Daytona USA 2 hangs during the Warning screen (well after the initial timing
+measurement has been performed) in subroutine 0x16410.
+
+The routine appears to work like this:
+
+  1. Read ping pong bit
+  2. Perform some unknown security board related functions
+  3. Frame sync routine
+      3a. If DEC timer has expired (DEC < 0), wait until DEC is reloaded (VBL),
+          else proceed.
+      3b. F118000C = 3
+      3c. Wait for a DEC exception (by spinning on a counter variable).
+      3d. If the counter >= 2, increment a variable presumably indicating a
+          dropped frame (because this can only occur if at stage 3a we had to
+          wait for the next frame).
+      3e. Set the counter to 0.
+  4. Spin waiting for ping pong bit to flip.
+
+  0x00016410: 0x3821FFF0	addi	r1,r1,-0x10
+  0x00016414: 0x7C0802A6	mfspr	r0,lr
+  0x00016418: 0x90010000	stw	r0,0x00(r1)
+  0x0001641C: 0x92010004	stw	r16,0x04(r1)
+  0x00016420: 0x38600002	li	r3,0x00000002
+  0x00016424: 0x4BFFB17D	bl	0x000115A0          <-- ??
+  0x00016428: 0x4BFEEC35	bl	0x0000505C          <-- seems to read status registers
+  0x0001642C: 0x3E000010	li	r16,0x00100000
+  0x00016430: 0x8A100666	lbz	r16,0x666(r16)      <-- read ping pong
+  0x00016434: 0x4863D803	bla	0x0063D800          <-- ??? appears to be security board related
+  0x00016438: 0x480362C5	bl	0x0004C6FC          <-- ??? DEC timer related. Appears to wait until DEC triggered (at which point ping pong bit would flip) but if we are already late, waits for next frame. Writes to tilegen reg during frame period.
+  0x0001643C: 0x4BFEEC21	bl	0x0000505C          <-- this function appears to read the status bits from Real3D
+  0x00016440: 0x3C600010	li	r3,0x00100000
+  0x00016444: 0x88630666	lbz	r3,0x666(r3)        <-- wait for ping pong to change
+  0x00016448: 0x7C038000	cmp	cr0,0,r3,r16
+  0x0001644C: 0x4182FFF0	bt	cr0[eq],0x0001643C  <-- this loop never exits and waits for ping pong bit
+  0x00016450: 0x82010004	lwz	r16,0x04(r1)
+  0x00016454: 0x80010000	lwz	r0,0x00(r1)
+  0x00016458: 0x0CC00200	twi	6,r0,0x200
+  0x0001645C: 0x7C0803A6	mtspr	lr,r0
+  0x00016460: 0x38210010	addi	r1,r1,0x10
+  0x00016464: 0x4E800020	bclr	0x14,0 
+    
+    
+  ; 16410 is called from this function
+  0x0008BD28: 0x3821FFF0	addi	r1,r1,-0x10
+  0x0008BD2C: 0x7C0802A6	mfspr	r0,lr
+  0x0008BD30: 0x90010000	stw	r0,0x00(r1)
+  0x0008BD34: 0x92010004	stw	r16,0x04(r1)
+  0x0008BD38: 0x92210008	stw	r17,0x08(r1)
+  0x0008BD3C: 0x9241000C	stw	r18,0x0C(r1)
+  0x0008BD40: 0x3821FFF0	addi	r1,r1,-0x10
+  0x0008BD44: 0x92610000	stw	r19,0x00(r1)
+  0x0008BD48: 0x92810004	stw	r20,0x04(r1)
+  0x0008BD4C: 0x92A10008	stw	r21,0x08(r1)
+  0x0008BD50: 0x92C1000C	stw	r22,0x0C(r1)
+  0x0008BD54: 0x3C600010	li	r3,0x00100000
+  0x0008BD58: 0x80635038	lwz	r3,0x5038(r3)
+  0x0008BD5C: 0x3863FFFF	addi	r3,r3,-0x01
+  0x0008BD60: 0x3C80FFFC	li	r4,0xFFFC0000
+  0x0008BD64: 0x54631838	rlwinm	r3,r3,3,0xFFFFFFF8
+  0x0008BD68: 0x7C64186E	lwzux	r3,r4,r3
+  0x0008BD6C: 0x80840004	lwz	r4,0x04(r4)
+  0x0008BD70: 0x7E032214	add	r16,r3,r4
+  0x0008BD74: 0x3E20FF80	li	r17,0xFF800000
+  0x0008BD78: 0x3A400000	li	r18,0x00000000
+  0x0008BD7C: 0x3E809800	li	r20,0x98000000
+  0x0008BD80: 0x3AA00000	li	r21,0x00000000
+  0x0008BD84: 0x3EC00001	li	r22,0x00010000
+  0x0008BD88: 0x4BF8A689	bl	0x00016410        <--
+  0x0008BD8C: 0x2C100000	cmpi	cr0,0,r16,0x00
+  0x0008BD90: 0x40810050	bf	cr0[gt],0x0008BDE0
+  0x0008BD94: 0x3A700000	addi	r19,r16,0x00
+  0x0008BD98: 0x7C13A800	cmp	cr0,0,r19,r21
+  0x0008BD9C: 0x4080000C	bf	cr0[lt],0x0008BDA8
+  0x0008BDA0: 0x7EB3AB78	mr	r19,r21
+  0x0008BDA4: 0x48000010	b	0x0008BDB4
+  0x0008BDA8: 0x7C13B000	cmp	cr0,0,r19,r22
+  0x0008BDAC: 0x40810008	bf	cr0[gt],0x0008BDB4
+  0x0008BDB0: 0x7ED3B378	mr	r19,r22
+  0x0008BDB4: 0x7E43A378	or	r3,r18,r20
+  0x0008BDB8: 0x38910000	addi	r4,r17,0x00
+  0x0008BDBC: 0x38B30000	addi	r5,r19,0x00
+  0x0008BDC0: 0x3821FF00	addi	r1,r1,-0x100
+  0x0008BDC4: 0x4BF85749	bl	0x0001150C
+  0x0008BDC8: 0x38210100	addi	r1,r1,0x100
+  0x0008BDCC: 0x5663103A	rlwinm	r3,r19,2,0xFFFFFFFC
+  0x0008BDD0: 0x7E138050	sub	r16,r16,r19
+  0x0008BDD4: 0x7E311A14	add	r17,r17,r3
+  0x0008BDD8: 0x7E521A14	add	r18,r18,r3
+  0x0008BDDC: 0x4BFFFFAC	b	0x0008BD88
+  0x0008BDE0: 0x82C1000C	lwz	r22,0x0C(r1)
+  0x0008BDE4: 0x82A10008	lwz	r21,0x08(r1)
+  0x0008BDE8: 0x82810004	lwz	r20,0x04(r1)
+  0x0008BDEC: 0x82610000	lwz	r19,0x00(r1)
+  0x0008BDF0: 0x38210010	addi	r1,r1,0x10
+  0x0008BDF4: 0x8241000C	lwz	r18,0x0C(r1)
+  0x0008BDF8: 0x82210008	lwz	r17,0x08(r1)
+  0x0008BDFC: 0x82010004	lwz	r16,0x04(r1)
+  0x0008BE00: 0x80010000	lwz	r0,0x00(r1)
+  0x0008BE04: 0x0CC00200	twi	6,r0,0x200
+  0x0008BE08: 0x7C0803A6	mtspr	lr,r0
+  0x0008BE0C: 0x38210010	addi	r1,r1,0x10
+  0x0008BE10: 0x4E800020	bclr	0x14,0
+
+  ; DEC timer related
+  0x0004C6FC: 0x3821FFF0	addi	r1,r1,-0x10
+  0x0004C700: 0x93E10000	stw	r31,0x00(r1)
+  0x0004C704: 0x93C10004	stw	r30,0x04(r1)
+  0x0004C708: 0x93A10008	stw	r29,0x08(r1)
+  0x0004C70C: 0x7FC802A6	mfspr	r30,lr
+  0x0004C710: 0x7FA00026	mfcr	r29
+  0x0004C714: 0x3C600010	li	r3,0x00100000
+  0x0004C718: 0x886316E9	lbz	r3,0x16E9(r3)
+  0x0004C71C: 0x3C800010	li	r4,0x00100000
+  0x0004C720: 0x888416E8	lbz	r4,0x16E8(r4)
+  0x0004C724: 0x5064442E	rlwimi	r4,r3,8,0x0000FF00
+  0x0004C728: 0x7C80F120	mtcrf	0x0F,r4
+  0x0004C72C: 0x38600010	li	r3,0x00000010         <-- syscall 0x10 eventually dispatches to handler at 0x30ec
+  0x0004C730: 0x44000002	sc	
+  0x0004C734: 0x7FEC42E6	mftb	r31,tbl
+  0x0004C738: 0x38A00000	li	r5,0x00000000
+  0x0004C73C: 0x7C9602A6	mfspr	r4,dec
+  0x0004C740: 0x2C040000	cmpi	cr0,0,r4,0x00
+  0x0004C744: 0x41A0FFF8	bt	cr0[lt],0x0004C73C    <-- ensures DEC period hasn't expired, else waits till next frame (DEC reloaded at VBL)
+  0x0004C748: 0x4BFFFF9D	bl	0x0004C6E4            <-- writes to F118000C = 3 (tilegen register unknown)
+  0x0004C74C: 0x3C600010	li	r3,0x00100000
+  0x0004C750: 0x88630033	lbz	r3,0x33(r3)
+  0x0004C754: 0x3C800010	li	r4,0x00100000         
+  0x0004C758: 0x88840033	lbz	r4,0x33(r4)
+  0x0004C75C: 0x7C041840	cmpl	cr0,0,r4,r3
+  0x0004C760: 0x4182FFF4	bt	cr0[eq],0x0004C754    <-- waits for 0x100033 to change (DEC exception )
+  0x0004C764: 0x28040002	cmpli	cr0,0,r4,0x0002     <-- check for multiple DEC exceptions?
+  0x0004C768: 0x41800018	bt	cr0[lt],0x0004C780
+  0x0004C76C: 0x3C600010	li	r3,0x00100000
+  0x0004C770: 0x88630011	lbz	r3,0x11(r3)
+  0x0004C774: 0x38630001	addi	r3,r3,0x01          <-- increase count of multiple DEC exceptions (I think this indicates a skipped frame)
+  0x0004C778: 0x3C400010	li	r2,0x00100000
+  0x0004C77C: 0x98620011	stb	r3,0x11(r2)
+  0x0004C780: 0x38600000	li	r3,0x00000000
+  0x0004C784: 0x3C400010	li	r2,0x00100000
+  0x0004C788: 0x98620033	stb	r3,0x33(r2)           <-- clear DEC counter
+  0x0004C78C: 0x7C6C42E6	mftb	r3,tbl
+  0x0004C790: 0x7C7F1850	sub	r3,r3,r31
+  0x0004C794: 0x38600000	li	r3,0x00000000
+  0x0004C798: 0x3C400071	li	r2,0x00710000
+  0x0004C79C: 0x98622020	stb	r3,0x2020(r2)
+  0x0004C7A0: 0x7C6C42E6	mftb	r3,tbl
+  0x0004C7A4: 0x3C400071	li	r2,0x00710000
+  0x0004C7A8: 0x90622018	stw	r3,0x2018(r2)
+  0x0004C7AC: 0x38600000	li	r3,0x00000000
+  0x0004C7B0: 0x3C400010	li	r2,0x00100000
+  0x0004C7B4: 0x98620012	stb	r3,0x12(r2)
+  0x0004C7B8: 0x3C400010	li	r2,0x00100000
+  0x0004C7BC: 0x90620034	stw	r3,0x34(r2)
+  0x0004C7C0: 0x4BFB6699	bl	0x00002E58
+  0x0004C7C4: 0x38600011	li	r3,0x00000011
+  0x0004C7C8: 0x44000002	sc	
+  0x0004C7CC: 0x7FA3F120	mtcrf	0x3F,r29
+  0x0004C7D0: 0x0CDE0200	twi	6,r30,0x200
+  0x0004C7D4: 0x7FC803A6	mtspr	lr,r30
+  0x0004C7D8: 0x83A10008	lwz	r29,0x08(r1)
+  0x0004C7DC: 0x83C10004	lwz	r30,0x04(r1)
+  0x0004C7E0: 0x83E10000	lwz	r31,0x00(r1)
+  0x0004C7E4: 0x38210010	addi	r1,r1,0x10
+  0x0004C7E8: 0x4E800020	bclr	0x14,0
+
+  ; This function appears to read the status registers and the ping pong bit
+  ; ends up at 0x100666.
+  Sub0000505C  addi    r1,r1,-$10                  
+  $00005060    stw     r31,$00(r1)               
+  $00005064    stw     r30,$04(r1)               
+  $00005068    stw     r29,$08(r1)               
+  $0000506C    stw     r28,$0C(r1)               
+  $00005070    mfspr   r28,lr                    
+  $00005074    li      r30,$00000000             
+  $00005078    li      r29,$00100000             
+  $0000507C    addi    r29,r29,$063C             
+  $00005080    li      r31,$00000009             
+  Jmp00005084  addi    r4,r30,$00                
+  $00005088    li      r3,$00000044              
+  $0000508C    sc
+  $00005090    stwu    r3,$04(r29)               
+  $00005094    addi    r30,r30,$04               
+  $00005098    addic.  r31,r31,-$01              
+  $0000509C    bf      cr0[eq],Jmp00005084       
+  $000050A0    li      r3,$00100000              
+  $000050A4    lwz     r3,$0640(r3)              
+  $000050A8    rlwinm  r4,r3,5,$00000001         
+  $000050AC    li      r2,$00100000     
+  $000050B0    stb     r4,$0664(r2)     
+  $000050B4    rlwinm  r4,r3,6,$00000001
+  $000050B8    li      r2,$00100000     
+  $000050BC    stb     r4,$0665(r2)     
+  $000050C0    rlwinm  r4,r3,7,$00000001
+  $000050C4    li      r2,$00100000     
+  $000050C8    stb     r4,$0666(r2)     
+  $000050CC    rlwinm  r4,r3,8,$00000001
+  $000050D0    li      r2,$00100000     
+  $000050D4    stb     r4,$0667(r2)     
+  $000050D8    rlwinm  r4,r3,9,$00000001
+  $000050DC    li      r2,$00100000     
+  $000050E0    stb     r4,$0668(r2)     
+  $000050E4    mtspr   lr,r28           
+  $000050E8    lwz     r28,$0C(r1)      
+  $000050EC    lwz     r29,$08(r1)      
+  $000050F0    lwz     r30,$04(r1)      
+  $000050F4    lwz     r31,$00(r1)      
+  $000050F8    addi    r1,r1,$10
+  $000050FC    bclr    $14,0
+  
+  Daytona 2 system call handler:
+  
+    r3 = function number
+    
+    Details unclear but at 306c, there is code that computes dispatch address
+    as:
+    
+      handlerAddr = 0x710000 + r3 * 4
+      

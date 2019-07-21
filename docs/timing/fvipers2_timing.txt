@@ -1,0 +1,1697 @@
+IDEA: what if buffer flip happens only at VBL or end of VBL?
+*******************************************************************************
+
+  Texture port uploads during attract mode:
+
+  Insufficient textures seem to be uploaded during attract mode resulting in
+  missing textures. The code that writes them appears at 563fc.
+
+  The rough trace of how 0x90000000 is written during the attract mode, 
+  beginning from the start of the main loop is:
+
+  38F94
+    3906C
+      391A8 (this is an indirect branch)
+        1FF30
+          200F4 (indirect again)
+            31480
+              314C4
+                5633C <-- writes to VROM texture port to upload texture
+
+  TODO: Main loop a0e8 -> a304 -> some sort of decrementer loop
+
+
+*******************************************************************************
+
+  Start up code:
+
+  Subroutine 40c0 was analyzed first because it is the first time that the game waits on the Real3D status bit. This turns out
+  to be some sort of a DEC calibration routine. Its caller has not been analyzed.
+
+  Next, the routines that initiate DMA transfers leading up to this routine were analyzed becuase they have a curious pattern
+  of writing 0x88000000 *twice* after certain patterns. After writing the config space, it writes 0x88000000 *three times*.
+
+    Real3D DMA copy (PC=00009B04, LR=00033468): 007FCCB8 -> 9C000000, C
+    READ STATUS FROM DMA (00000000) pc=00009a28 lr=0000404c
+    Real3D DMA copy (PC=00009B04, LR=00033468): 007FCCC8 -> 88000000, 4
+    READ STATUS FROM DMA (00000000) pc=00009a28 lr=0000404c
+    READ STATUS FROM DMA (00000000) pc=00009a28 lr=0000404c
+    Real3D DMA copy (PC=00009B04, LR=00033468): 007FCCC8 -> 88000000, 4
+    READ STATUS FROM DMA (00000000) pc=00009a28 lr=0000404c
+    READ STATUS FROM DMA (00000000) pc=00009a28 lr=0000404c
+    READ STATUS FROM DMA (00000000) pc=00009a28 lr=0000404c
+    Real3D DMA copy (PC=00009B04, LR=00033468): 007FCCC8 -> 88000000, 4
+    READ STATUS FROM DMA (00000000) pc=00009a28 lr=0000404c
+    READ STATUS FROM DMA (00000000) pc=00009a28 lr=0000404c
+    Real3D DMA copy (PC=00009B04, LR=00033404): 00798000 -> 8C100000, 28
+    Real3D DMA copy (PC=00009B04, LR=00033468): 007FCCC8 -> 88000000, 4
+    READ STATUS FROM DMA (00000000) pc=00009a28 lr=0000404c
+    READ STATUS FROM DMA (00000000) pc=00009a28 lr=0000404c
+    Real3D DMA copy (PC=00009B04, LR=00033404): 00798000 -> 8E000000, C0
+    Real3D DMA copy (PC=00009B04, LR=00033404): 00798000 -> 8E000400, 140
+    Real3D DMA copy (PC=00009B04, LR=00033404): 00798000 -> 8E001400, 4
+    Real3D DMA copy (PC=00009B04, LR=00033404): 00798000 -> 8E008000, 30
+    Real3D DMA copy (PC=00009B04, LR=00033468): 007FCCC8 -> 88000000, 4
+    READ STATUS FROM DMA (00000000) pc=00009a28 lr=0000404c
+    Real3D DMA copy (PC=00009B04, LR=00033404): 00798000 -> 8E000000, C0
+    Real3D DMA copy (PC=00009B04, LR=00033404): 00798000 -> 8E000400, 140
+    Real3D DMA copy (PC=00009B04, LR=00033404): 00798000 -> 8E001400, 4
+    Real3D DMA copy (PC=00009B04, LR=00033404): 00798000 -> 8E008000, 30
+    Real3D DMA copy (PC=00009B04, LR=00033468): 007FCCC8 -> 88000000, 4
+    READ STATUS FROM DMA (00000000) pc=00009a28 lr=0000404c
+    Real3D DMA copy (PC=00009B04, LR=00033468): 00798000 -> 94000000, 408
+    Real3D DMA copy (PC=00009B04, LR=00033468): 007FCCC8 -> 88000000, 4   <-- last flush from routine @ 32a0c
+    READ STATUS FROM DMA (00000000) pc=00009a28 lr=0000404c
+    READ STATUS FROM DMA (00000000) pc=00009a28 lr=0000404c
+    READ STATUS FROM DMA (00000000) pc=00009a28 lr=0000404c
+    READ STATUS FROM DMA (00000000) pc=00009a28 lr=0000404c
+    READ STATUS FROM DMA (00000000) pc=00009a28 lr=0000404c
+    READ STATUS FROM DMA (00000000) pc=00009a28 lr=0000404c
+    READ STATUS FROM DMA (00000000) pc=00009a28 lr=0000404c
+    READ STATUS FROM DMA (00000000) pc=00009a28 lr=0000404c
+    READ STATUS FROM DMA (00000000) pc=00009a28 lr=0000404c
+    Real3D DMA copy (PC=00009B04, LR=00033468): 007FCF88 -> 88000000, 4
+    READ STATUS FROM DMA (00000000) pc=00009a28 lr=0000404c
+    READ STATUS FROM DMA (00000000) pc=00009a28 lr=0000404c
+    Real3D DMA copy (PC=00009B04, LR=00033404): 00798000 -> 8C100040, 1FE28
+    Real3D DMA copy (PC=00009B04, LR=00033468): 007FCF88 -> 88000000, 4
+    READ STATUS FROM DMA (00000000) pc=00009a28 lr=0000404c
+    READ STATUS FROM DMA (00000000) pc=00009a28 lr=0000404c
+    READ STATUS FROM DMA (00000000) pc=00009a28 lr=0000404c
+    Real3D DMA copy (PC=00009B04, LR=00033468): 007FCF88 -> 88000000, 4
+    READ STATUS FROM DMA (00000000) pc=00009a28 lr=0000404c
+    READ STATUS FROM DMA (00000000) pc=00009a28 lr=0000404c
+    Real3D DMA copy (PC=00009B04, LR=00033404): 00798000 -> 8C120000, 40000
+    Real3D DMA copy (PC=00009B04, LR=00033404): 00798000 -> 8C160000, 40000
+    READ STATUS FROM DMA (00000000) pc=00009a28 lr=0000404c
+    Real3D DMA copy (PC=00009B04, LR=00033404): 00798000 -> 8C1A0000, 74D8
+    Real3D DMA copy (PC=00009B04, LR=00033468): 007FCF88 -> 88000000, 4
+    READ STATUS FROM DMA (00000000) pc=00009a28 lr=0000404c
+    READ STATUS FROM DMA (00000000) pc=00009a28 lr=0000404c
+    READ STATUS FROM DMA (00000000) pc=00009a28 lr=0000404c
+    Real3D DMA copy (PC=00009B04, LR=00033468): 007FCF88 -> 88000000, 4
+    READ STATUS FROM DMA (00000000) pc=00009a28 lr=0000404c
+    READ STATUS FROM DMA (00000000) pc=00009a28 lr=0000404c
+    Real3D DMA copy (PC=00009B04, LR=00033404): 00798000 -> 8C1A8000, 1B940
+    Real3D DMA copy (PC=00009B04, LR=00033468): 007FCF88 -> 88000000, 4
+    READ STATUS FROM DMA (00000000) pc=00009a28 lr=0000404c
+    READ STATUS FROM DMA (00000000) pc=00009a28 lr=0000404c
+    READ STATUS FROM DMA (00000000) pc=00009a28 lr=0000404c
+    Real3D DMA copy (PC=00009B04, LR=00033468): 007FCF88 -> 88000000, 4
+    READ STATUS FROM DMA (00000000) pc=00009a28 lr=0000404c
+    READ STATUS FROM DMA (00000000) pc=00009a28 lr=0000404c
+    Real3D DMA copy (PC=00009B04, LR=00033404): 00798000 -> 8C1C4000, FB18
+    Real3D DMA copy (PC=00009B04, LR=00033468): 007FCF88 -> 88000000, 4
+    READ STATUS FROM DMA (00000000) pc=00009a28 lr=0000404c
+    READ STATUS FROM DMA (00000000) pc=00009a28 lr=0000404c
+    READ STATUS FROM DMA (00000000) pc=00009a28 lr=0000404c
+    Real3D DMA copy (PC=00009B04, LR=00033468): 007FCF88 -> 88000000, 4
+    READ STATUS FROM DMA (00000000) pc=00009a28 lr=0000404c
+    READ STATUS FROM DMA (00000000) pc=00009a28 lr=0000404c
+    Real3D DMA copy (PC=00009B04, LR=00033404): 00798000 -> 8C1D4000, 9E48
+    Real3D DMA copy (PC=00009B04, LR=00033468): 007FCF88 -> 88000000, 4
+    READ STATUS FROM DMA (00000000) pc=00009a28 lr=0000404c
+    READ STATUS FROM DMA (00000000) pc=00009a28 lr=0000404c
+    READ STATUS FROM DMA (00000000) pc=00009a28 lr=0000404c
+    Real3D DMA copy (PC=00009B04, LR=00033468): 007FCF88 -> 88000000, 4
+    READ STATUS FROM DMA (00000000) pc=00009a28 lr=0000404c
+    READ STATUS FROM DMA (00000000) pc=00009a28 lr=0000404c
+    Real3D DMA copy (PC=00009B04, LR=00033404): 00798000 -> 8C1E0000, 5E60
+    Real3D DMA copy (PC=00009B04, LR=00033468): 007FCF88 -> 88000000, 4
+    READ STATUS FROM DMA (00000000) pc=00009a28 lr=0000404c
+    READ STATUS FROM DMA (00000000) pc=00009a28 lr=0000404c
+    READ STATUS FROM DMA (00000000) pc=00009a28 lr=0000404c
+    READ STATUS FROM DMA (00000000) pc=00009a28 lr=0000404c
+    Real3D DMA copy (PC=00009B04, LR=00033468): 007FCE78 -> 88000000, 4 
+    READ STATUS FROM DMA (ffffffff) pc=00009a28 lr=0000404c     <-- easy to get stuck here if status bit flips too quickly
+
+  The data written initially to Real3D RAM appears to be a minimalistic scene
+  graph consisting of one single viewport and one single culling node that
+  references an address in VROM which may or may not be a model. It has not yet
+  been analyzed in detail.
+
+    Viewport:
+    000000: 00000000   0.000000
+    000001: 01000000   0.000000
+    000002: 04800500   0.000000  <-- display list at 0x500
+    000003: 43fb4fc7   502.623260
+    000004: 00000000   0.000000
+    000005: bf64f92e   -0.894427
+    000006: 3ee4f92e   0.447214
+    000007: 3f19999a   0.600000
+    000008: 3fb5fdbb   1.421806
+    000009: 3feed9e1   1.866024
+    00000a: 3f000000   0.500000
+    00000b: 3f000000   0.500000
+    00000c: 3ea9db1b   0.331750
+    00000d: 3f718087   0.943367
+    00000e: 3e8483f4   0.258819
+    00000f: 3f7746e9   0.965926
+    000010: 3ea9db1b   0.331750
+    000011: bf718087   -0.943367
+    000012: 3e8483f4   0.258819
+    000013: bf7746e9   -0.965926
+    000014: 060007bf   0.000000
+    000015: 00000000   0.000000
+    000016: 00802000   0.000000
+    000017: 00800100   0.000000
+    000018: 00000000   0.000000
+    000019: 00000000   0.000000
+    00001a: 00000000   0.000000
+    00001b: 00000003   0.000000
+    00001c: 00000000   0.000000
+    00001d: 00200600   0.000000
+    00001e: 002007c0   0.000000
+    00001f: 00000000   0.000000
+    000020: 00000000   0.000000
+    000021: 4e6e6b28   1000000000.000000
+    000022: 00000000   0.000000
+    000023: 3727c5ac   0.000010
+    000024: 00004c00   0.000000
+    000025: 00ffffab   0.000000
+
+    Display list:
+    000500: 02040000  0.000000 <-- culling node at 0x40000
+    000501: 00000000  0.000000
+    ...
+
+    Culling node:
+    040000: 80000412   -0.000000
+    040001: 00000000   0.000000
+    040002: 00000000   0.000000
+    040003: 20000000   0.000000
+    040004: 00000000   0.000000
+    040005: 00000000   0.000000
+    040006: 00000000   0.000000
+    040007: 017fff00   0.000000 <-- VROM model at 0x7fff00 (0x1fffc00 in bytes)
+    040008: 01000000   0.000000
+    040009: eab8eab8   -111775389383496413841719296.000000
+
+    VROM:
+    01fffc00h: 9E 28 FD A3 9E 37 08 3A 18 49 94 02 04 BF 39 08
+    01fffc10h: 2B 8E 02 99 84 77 81 81 0A 49 FF BF F7 3A 39 6C
+    01fffc20h: 07 3C 13 6C B7 77 05 08 00 86 F8 78 C7 A7 11 74
+    01fffc30h: 00 64 0D 63 08 6E 0F D3 B6 20 E7 06 6F 5A 11 AE
+    01fffc40h: 83 52 92 CC 64 19 FF 08 35 F9 2A 4C 74 69 01 B1
+    01fffc50h: F6 21 A6 70 F6 B5 EC 7C 80 61 F8 85 6A 05 8E CF
+    01fffc60h: 67 20 DE 7D CF DF 59 64 64 99 E8 3A 23 4E E3 8C
+    01fffc70h: 4D 81 27 00 53 4F AB 50 61 75 BD A1 7E 26 80 C7
+    01fffc80h: 51 A8 2A E0 67 38 0A 28 54 88 90 08 8C BF 1D 28
+    01fffc90h: DC 28 40 C8 0B D9 89 05 A3 E9 B7 37 56 C2 D1 C4
+    01fffca0h: 71 C8 DC F3 FA 94 25 82 10 1A D8 04 40 5F 33 68
+    01fffcb0h: 8D 49 70 68 00 CD A3 6A B1 FA 9B 0C F9 29 44 9F
+    01fffcc0h: 43 50 AA EB E2 77 4C 41 4A F9 10 D2 2B F6 46 08
+    01fffcd0h: 84 38 80 A8 24 22 7F 32 15 13 7F 08 28 48 12 1D
+    01fffce0h: 84 37 E5 6F F3 BC 32 D8 0B 9C 26 14 00 BE 57 4C
+    01fffcf0h: CE 60 05 30 8C 09 A6 0A 04 84 AD 08 FB 07 58 E8
+
+  It also writes what might be a gamma table to the textur FIFO.
+
+//
+// This routine is executed once during startup. Calibrates the DEC value.
+// If the DEC value is too low (i.e., the status bit flipped too quickly),
+// the game will hang a little further on in suba0e8() in a decrementer
+// loop that loops until the decrementer turns positive (which happens in
+// the VBL handler when DEC is reloaded with this calibrated value).
+//
+void sub40c0()
+{
+  // Measure the duration of one whole frame
+  wait_for_vbl();
+  uint32_t start_of_frame = read_tbl();
+  wait_for_vbl();
+  uint32_t end_of_frame = read_tbl();
+  uint32_t frame_duration = end_of_frame - start_of_frame;
+
+  // Issue a flush command
+  real3d_flush(2);  // 0x88000000 = 0xdeaddead
+
+  // Wait for status bit to flip
+  read_real3d_status();
+  uint8_t old_status_bit = _real3d_status_bits[2];
+  do
+  {
+    read_real3d_status();
+  } while (_real3d_status_bits[2] == old_status_bit);
+
+  // Measure duration until next VBL
+  uint32_t start = read_tbl();
+  wait_for_vbl();
+  read_real3d_status();
+  uint32_t end = read_tbl();
+  uint32_t duration = end - start;
+  if (duration < 0x20)
+    duration = 0x20;
+
+  // Compute the time that the flush and subsequent status bit flip took. This
+  // is the only place in the code that this value is loaded, and it is used to
+  // reload the decrementer.
+  //
+  // What puzzles me is why they don't just measure the time directly by
+  // taking (start - end_of_frame) ?
+  _dec_reload_on_vbl = frame_duration - duration;
+}
+
+
+//
+// ... Boot up code ...
+//
+0x00038C74: 0x3D200058	li	r9,0x00580000
+0x00038C78: 0x93A90C80	stw	r29,0xC80(r9)
+0x00038C7C: 0x3C60FFE0	li	r3,0xFFE00000
+0x00038C80: 0x38639800	addi	r3,r3,-0x6800
+0x00038C84: 0x4BFF9AF9	bl	0x0003277C            <-- first writes to Real3D occur here (94, 8E
+0x00038C88: 0x3D20FFF1	li	r9,0xFFF10000
+0x00038C8C: 0x3BA90000	addi	r29,r9,0x00
+0x00038C90: 0x841D0004	lwzu	r0,0x04(r29)
+0x00038C94: 0x2C80FFFF	cmpi	cr1,0,r0,-0x01
+0x00038C98: 0x41860028	bt	cr1[eq],0x00038CC0
+0x00038C9C: 0x3B690000	addi	r27,r9,0x00
+0x00038CA0: 0x3F800058	li	r28,0x00580000
+0x00038CA4: 0x807D0000	lwz	r3,0x00(r29)
+0x00038CA8: 0x809C0C78	lwz	r4,0xC78(r28)
+0x00038CAC: 0x7C63DA14	add	r3,r3,r27
+0x00038CB0: 0x4BFFA421	bl	0x000330D0            <-- this loop write a series of transfers to Real3D 8C space
+0x00038CB4: 0x841D0004	lwzu	r0,0x04(r29)
+0x00038CB8: 0x2C80FFFF	cmpi	cr1,0,r0,-0x01
+0x00038CBC: 0x4086FFE8	bf	cr1[eq],0x00038CA4
+0x00038CC0: 0x3D600058	li	r11,0x00580000
+0x00038CC4: 0x3D20FFDC	li	r9,0xFFDC0000
+0x00038CC8: 0x39295004	addi	r9,r9,0x5004
+0x00038CCC: 0x912B0E90	stw	r9,0xE90(r11)
+0x00038CD0: 0x4BFCB3F1	bl	sub40c0               <-- performs some sort of frame timing and establishes DEC reload value
+0x00038CD4: 0x4BFCBCB9	bl	0x0000498C
+0x00038CD8: 0x4BFF9E91	bl	0x00032B68
+0x00038CDC: 0x4BFD186D	bl	0x0000A548
+...
+... many lines ...
+...
+0x00038F18: 0x38600003	li	r3,0x00000003
+0x00038F1C: 0x4BFCEC31	bl	0x00007B4C
+0x00038F20: 0x4BFDFEF9	bl	0x00018E18
+0x00038F24: 0x4BFD11C5	bl	0x0000A0E8            <-- gets stuck here if Real3D bit has flipped too soon because of DEC
+0x00038F28: 0x48039E79	bl	0x00072DA0
+...
+...
+
+
+
+
+
+
+Code at 32a30 is the first transfer to Real3D:
+
+0x0003277C: 0x9421FD30	stwu	r1,-0x2D0(r1)
+0x00032780: 0x7C0802A6	mfspr	r0,lr
+0x00032784: 0x936102BC	stw	r27,0x2BC(r1)
+0x00032788: 0x938102C0	stw	r28,0x2C0(r1)
+0x0003278C: 0x93A102C4	stw	r29,0x2C4(r1)
+0x00032790: 0x93C102C8	stw	r30,0x2C8(r1)
+0x00032794: 0x93E102CC	stw	r31,0x2CC(r1)
+0x00032798: 0x90010004	stw	r0,0x04(r1)
+...
+.. very large subroutine -- most of it trimmed ..
+...
+... r27 = saved single input param to this function = 0xffdf9800
+...
+0x00032A0C: 0x38C60020	addi	r6,r6,0x20
+0x00032A10: 0x4CC63182	crxor	cr1[eq],cr1[eq],cr1[eq]
+0x00032A14: 0x48000B8D	bl	0x000335A0
+0x00032A18: 0x4BFD7619	bl	wait_for_vbl
+0x00032A1C: 0x4BFD7615	bl	wait_for_vbl
+0x00032A20: 0x38600002	li	r3,0x00000002
+0x00032A24: 0x38807FFC	li	r4,0x00007FFC             ; value 1
+0x00032A28: 0x38A00004	li	r5,0x00000004             ; value 2
+0x00032A2C: 0x3CC00002	li	r6,0x00020000             ; value 3
+0x00032A30: 0x48000AAD	bl	write_real3d_config_space ; write 3 values to 9C000000
+0x00032A34: 0x4BFD75FD	bl	wait_for_vbl      <-- somewhere after this point, first DMA transfers to Real3D begin
+0x00032A38: 0x38600002	li	r3,0x00000002
+0x00032A3C: 0x48000ADD	bl	real3d_flush
+0x00032A40: 0x4BFD75F1	bl	wait_for_vbl
+0x00032A44: 0x4BFD75ED	bl	wait_for_vbl
+0x00032A48: 0x38600002	li	r3,0x00000002
+0x00032A4C: 0x48000ACD	bl	real3d_flush
+0x00032A50: 0x4BFD75E1	bl	wait_for_vbl
+0x00032A54: 0x4BFD75DD	bl	wait_for_vbl
+0x00032A58: 0x4BFD75D9	bl	wait_for_vbl
+0x00032A5C: 0x38600002	li	r3,0x00000002
+0x00032A60: 0x48000AB9	bl	real3d_flush
+0x00032A64: 0x4BFD75CD	bl	wait_for_vbl
+0x00032A68: 0x4BFD75C9	bl	wait_for_vbl
+0x00032A6C: 0x7F63DB78	mr	r3,r27
+0x00032A70: 0x4800063D	bl	sub330ac
+0x00032A74: 0x38600002	li	r3,0x00000002
+0x00032A78: 0x48000AA1	bl	real3d_flush
+0x00032A7C: 0x4BFD75B5	bl	wait_for_vbl
+0x00032A80: 0x4BFD75B1	bl	wait_for_vbl
+0x00032A84: 0x7F63DB78	mr	r3,r27
+0x00032A88: 0x48000601	bl	0x00033088
+0x00032A8C: 0x38600002	li	r3,0x00000002
+0x00032A90: 0x48000A89	bl	real3d_flush
+0x00032A94: 0x4BFD759D	bl	wait_for_vbl
+0x00032A98: 0x7F63DB78	mr	r3,r27
+0x00032A9C: 0x480005ED	bl	0x00033088
+0x00032AA0: 0x38600002	li	r3,0x00000002
+0x00032AA4: 0x48000A75	bl	real3d_flush
+0x00032AA8: 0x4BFD7589	bl	wait_for_vbl
+0x00032AAC: 0x48000055	bl	0x00032B00
+0x00032AB0: 0x48000205	bl	0x00032CB4
+0x00032AB4: 0x38600002	li	r3,0x00000002
+0x00032AB8: 0x48000A61	bl	real3d_flush
+0x00032ABC: 0x4BFD7575	bl	wait_for_vbl
+0x00032AC0: 0x4BFD7571	bl	wait_for_vbl
+0x00032AC4: 0x4BFD756D	bl	wait_for_vbl
+0x00032AC8: 0x4BFD7569	bl	wait_for_vbl
+0x00032ACC: 0x4BFD7565	bl	wait_for_vbl
+0x00032AD0: 0x4BFD7561	bl	wait_for_vbl
+0x00032AD4: 0x4BFD755D	bl	wait_for_vbl
+0x00032AD8: 0x4BFD7559	bl	wait_for_vbl
+0x00032ADC: 0x80010004	lwz	r0,0x04(r1)
+0x00032AE0: 0x7C0803A6	mtspr	lr,r0
+0x00032AE4: 0x836102BC	lwz	r27,0x2BC(r1)
+0x00032AE8: 0x838102C0	lwz	r28,0x2C0(r1)
+0x00032AEC: 0x83A102C4	lwz	r29,0x2C4(r1)
+0x00032AF0: 0x83C102C8	lwz	r30,0x2C8(r1)
+0x00032AF4: 0x83E102CC	lwz	r31,0x2CC(r1)
+0x00032AF8: 0x382102D0	addi	r1,r1,0x2D0
+0x00032AFC: 0x4E800020	bclr	0x14,0
+
+void sub330ac(uint32_t *src_list)
+{
+  sub32f60(src_list, 1);
+}
+
+uint32_t _580c78;
+uint32_t _580c7c;
+uint32_t _580c84;
+uint32_t _580c88;
+
+/*
+ * Processes a list of data buffers arranged as:
+ *
+ *  Word Offset   Description
+ *  -----------   -----------
+ *  0             Offset in selected Real3D space
+ *  1             Number of words following (N)
+ *  ...           Data follows
+ *  2+N           Next offset
+ *  ...
+ *
+ * When writing to 0x8Exxxxxx, the offset gets decremented by 16 and if it was
+ * equal to 16, some special action is taken.
+ */
+
+void sub32f60(uint32_t *src_list, uint32_t select)  // 32f60
+{
+  // Select is almost certainly a bool and this convoluted code is probably
+  // just the compiler producing select and !select.
+  uint32_t select_8e = (param2 <= 0) ? 1 : 0;
+  uint32_t select_8c = ((param2 ^ 1) <= 0) ? 1 : 0;
+
+  while (*src_list != 0xffffff)
+  {
+    uint32_t dest_offset = bswap32(*src_list++);  // offset in selected Real3D space
+    uint32_t num_words = bswap32(*src_list++);    // length of buffer to transfer in 32-bit words
+    uint32_t *data = src_list;                    // data to transfer follows
+
+    if (select_8e && (offset <= 0x7ffff))
+    { 
+      offset -= 16;
+      if (offset == 0)
+        sub32dc0(src_list);
+
+      if (offset == _580c7c)
+        sub32dec(src_list, num_words);
+
+      if (offset == _580c84)
+        sub32e30(src_list, num_words);
+
+      sub32e68(0x8e000000 | offset, data, num_words);
+    } else if (select_8c && (offset > 0x000fffff))
+      sub32e68(0x8c000000 | offset, data, num_words);
+
+    src_list += num_words;
+  }
+}
+
+
+void sub32dc0(uint32_t *src_list) // 32dc0
+{
+  // This reads from inside the data chunk. Hopefully I got this right.
+  uint32_t num_bytes = (bswap32(src_list[2]) * 4) & 0x01fffffc;
+  _580c7c = num_bytes;
+  num_bytes = (bswap32(src_list[0x17]) * 4) & 0x01fffffc;
+  _580c84 = num_bytes;
+}
+
+// Seems to copy over the display list (are these in memory at 0x8Exxxxxx?) to a fixed place in RAM?
+// But I haven't verified this
+void sub32dec(uint32_t *src_list, uint32_t num_words) // 32dec
+{
+  if (num_words != 0)
+  {
+    uint32_t *dest = (void *) 0x003003cc;
+    uint32_t idx = 0;
+    uint32_t *end = &src_list[num_words];
+    do
+    {
+      dest[idx] = bswap32(src_list) & 0x00ffffff;
+      src_list++;
+      idx++;
+    } while (src_list < end);
+  }
+  _580c78 = num_words;
+}
+
+void sub32e30(uint32_t *src_list, uint32_t num_words)
+{
+  if (num_words != 0)
+  {
+    uint32_t *dest = (void *) 0x30a00c;
+    for (int i = 0; i < num_words; i++)
+    {
+      dest[i] = src_list[i];
+    }
+  }
+  _580c88 = num_words;
+}
+
+void sub32e68(uint32_t *dest, uint32_t *src, uint32_t num_words)
+{
+  uint32_t r29 = num_words;
+  uint32_t *r28 = dest;
+  uint32_t *r30 = src;
+
+  uint32_t *buf = (void*) 0x798000;
+
+  if (num_words > 0x10000)
+  {
+    do
+    {
+      for (int i = 0; i < 0x3fffc/4; i++)
+      {
+        buf[i] = *src++;
+      }
+
+      dma_copy_and_wait(dest, buf, 0x10000);
+
+      num_words -= 0x10000;
+      dest += 0x10000;
+    } while (num_words > 0x10000);
+  }
+
+  if (num_words != 0)
+  {
+    for (int i = 0; i < num_words; i++)
+    {
+      buf[i] = *src++;
+    }
+  }
+  
+  dma_copy_and_wait(dest, buf, num_words); 
+}
+
+void dma_copy_and_wait(uint32_t *dest, uint32_t *src, uint32_t num_words) // 333f4
+{
+  do_dma_copy(dest, src, num_words);
+  wait_for_dma_complete();
+}
+
+void write_real3d_config_space(uint32_t select, uint32_t data1, uint32_t data2, uint32_t data3) // 334dc
+{
+  uint32_t data[3] = { data1, data2, data3 };
+  uint32_t dest_addr = 0x1c000000 | ((select & 3) << 30); // this is called with select == 2, giving address 0x9C
+  dma_copy_with_swap(dest_addr, data, 3);
+}
+
+void real3d_flush(uint32_t select)  // 33518
+{
+  // Note: when select == 2, addr == 88000000
+  uint32_t addr = ((select & 3) << 30) + 0x08000000;
+  uint32_t data = 0xdeaddead;
+  dma_copy_with_swap(addr, &data, 1);
+}
+
+void wait_for_vbl()  // a030
+{
+  uint8_t old = _vbl_count;
+  while (_vbl_count == old)
+    ;
+  _vbl_count = 0;
+  write32(0xf118000c, bswap32(0x3)); 
+}
+
+
+uint8_t _581321;
+uint32_t _5812f0[]; // at least 4 words long
+
+uint32_t do_dma_copy(uint32_t dest_addr, uint32_t *src, uint32_t num_words)  // 8fb0, return value in r5
+{
+  if (!(_580e88 & 0x80))
+  {
+    // Step 1.x pathway?
+    //TODO: disassemble me
+    ...
+  }
+  else
+  {
+    if (_581321 & 0x80)
+      wait_for_dma_complete()();
+    _581321 |= 0x80;
+    
+    // Write source and destination address to DMA device
+    write32(0xc2000000 + 0, bswap32(src));
+    write32(0xc2000000 + 4, bswap32(dest_addr));
+
+    // Compute size in bytes to transfer and set bits 31 and 30 for unknown
+    // reason 
+    uint32_t flags_and_num_bytes = 0xc0000000 | ((num_words * 4) & 0x3fffc);
+    
+    // Set up the DMA list used by the IRQ handler. The first 3 entries are the
+    // transfer we make here. The IRQ handler will advance past these and see
+    // the end-of-list sentinel and then do nothing.
+    _5812f0[0] = bswap32(flags_and_num_bytes);
+    _5812f0[1] = bswap32(src);
+    _5812f0[2] = bswap32(dest_addr);
+    _5812f0[3] = bswap32(0x98080000); // end of list
+    _5812f0[4] = bswap32(1); 
+    g_dma_list = &_5812f0[0];
+
+    // This appears to indicate that there is data in the DMA list. The IRQ
+    // handler will clear this when it reaches the end-of-list sentinel.
+    _dma_xfers_pending = 0xff;
+
+    // Initiate DMA transfer by writing the size register
+    write32(0xc2000000 + 8, bswap32(num_words));
+    return num_words; // returned in r5
+  }
+}
+
+uint32_t _cumulative_dma_time;  // 580e60 -- cumulative time spent waiting on DMA
+
+void wait_for_dma_complete()  // 8fe0
+{
+  uint32_t time_before = read_tbl();
+  while (_dma_xfers_pending != 0)
+    ;
+  _581321 &= 0x7f;
+  uint32_t time_after = read_tbl();
+  uint32_t duration = time_after - time_before;
+  _580e60 += duration;
+}
+
+void dma_copy_with_swap(uint32_t dest_addr, uint32_t *src, uint32_t num_words) // 33418
+{
+  // Pre-swap all the words
+  if (num_words > 0)
+  {
+    for (int i = 0; i < num_words; i++)
+    {
+      src[i] = bswap32(src[i]);
+    }
+  }
+
+  do_dma_copy(dest_addr, src, num_words);
+  wait_for_dma_complete()();
+
+  // Swap them back
+  if (num_words > 0)
+  {
+    for (int i = 0; i < num_words; i++)
+    {
+      src[i] = bswap32(src[i]);
+    }
+  }
+}
+
+
+*******************************************************************************
+
+Main application loop
+
+  Timing breakdowns (timer cycles) of functions (taken during attract mode
+  sequence):
+
+    Function    Cycles
+    --------    ------
+    sub38fa4()  272092
+    sub74994()  2
+    suba0e8()   5683
+
+Perhaps a more useful timing breakdown from in-game:
+
+  Address 38F94 -> 38F94 (one frame) = 833331 cycles    100%
+          38FA4 -> 39128             = 697 cycles       0.08%
+          38FA4 -> A068              = 571330 cycles    68.56%  <-- A068 waits for VBL, therefore this code path is the game logic
+          38F98 -> 38F94             = 85855            10%
+          
+
+
+
+
+;
+; Main loop: 38F94
+;
+
+
+0x00038F94: 0x48000011	bl	0x00038FA4  <-- all DMA transfers to Real3D eventually happen in here, with a DEC loop wait at the beginning
+0x00038F98: 0x4803B9FD	bl	0x00074994
+0x00038F9C: 0x4BFD114D	bl	0x0000A0E8  <-- another DEC loop wait occurs here
+0x00038FA0: 0x4BFFFFF4	b	0x00038F94
+
+
+0x00038FA4: 0x9421FFF0	stwu	r1,-0x10(r1)
+0x00038FA8: 0x7C0802A6	mfspr	r0,lr
+0x00038FAC: 0x90010004	stw	r0,0x04(r1)
+0x00038FB0: 0x7C0C42E6	mftb	r0,tbl
+0x00038FB4: 0x3D400058	li	r10,0x00580000
+0x00038FB8: 0x816A0E28	lwz	r11,0xE28(r10)
+0x00038FBC: 0x3D200027	li	r9,0x00270000
+0x00038FC0: 0x90094314	stw	r0,0x4314(r9)
+0x00038FC4: 0x3D20FE10	li	r9,0xFE100000
+0x00038FC8: 0x380B0001	addi	r0,r11,0x01
+0x00038FCC: 0x900A0E28	stw	r0,0xE28(r10)
+0x00038FD0: 0x7D6B00D0	neg	r11,r11
+0x00038FD4: 0x9969001C	stb	r11,0x1C(r9)  ; update board LED
+0x00038FD8: 0x48002469	bl	0x0003B440
+0x00038FDC: 0x4BFE7C35	bl	0x00020C10
+0x00038FE0: 0x3D200011	li	r9,0x00110000
+0x00038FE4: 0x88090B20	lbz	r0,0xB20(r9)
+0x00038FE8: 0x2C800001	cmpi	cr1,0,r0,0x01
+0x00038FEC: 0x41860034	bt	cr1[eq],0x00039020
+0x00038FF0: 0x3D200058	li	r9,0x00580000
+0x00038FF4: 0x38000000	li	r0,0x00000000
+0x00038FF8: 0x98090F03	stb	r0,0xF03(r9)
+0x00038FFC: 0x3D200058	li	r9,0x00580000
+0x00039000: 0x98090F02	stb	r0,0xF02(r9)
+0x00039004: 0x3D200058	li	r9,0x00580000
+0x00039008: 0x98090F01	stb	r0,0xF01(r9)
+0x0003900C: 0x3D200058	li	r9,0x00580000
+0x00039010: 0x98090F00	stb	r0,0xF00(r9)
+0x00039014: 0x3D200059	li	r9,0x00590000
+0x00039018: 0x38000000	li	r0,0x00000000
+0x0003901C: 0x90091D14	stw	r0,0x1D14(r9)
+0x00039020: 0x4BFE7A3D	bl	0x00020A5C
+0x00039024: 0x4BFE82DD	bl	0x00021300
+0x00039028: 0x48038D15	bl	0x00071D3C
+0x0003902C: 0x3D200059	li	r9,0x00590000
+0x00039030: 0x8009FD4C	lwz	r0,-0x2B4(r9)
+0x00039034: 0x70090C00	andi.	r9,r0,0x0C00
+0x00039038: 0x41820024	bt	cr0[eq],0x0003905C  ; this path is taken during attract mode...
+0x0003903C: 0x3D200059	li	r9,0x00590000
+0x00039040: 0x8809FD99	lbz	r0,-0x267(r9)
+0x00039044: 0x2880001F	cmpli	cr1,0,r0,0x001F
+0x00039048: 0x41850014	bt	cr1[gt],0x0003905C
+0x0003904C: 0x4BFD15C9	bl	0x0000A614  <-- saves all regs, including FP
+0x00039050: 0x4BFD1B75	bl	0x0000ABC4
+0x00039054: 0x4BFD163D	bl	0x0000A690  <-- restores all regs
+0x00039058: 0x48000028	b	0x00039080
+0x0003905C: 0x4BFCBE81	bl	0x00004EDC
+0x00039060: 0x4BFD15B5	bl	0x0000A614  ; save all regs
+0x00039064: 0x4BFD1B61	bl	0x0000ABC4
+0x00039068: 0x4BFD1629	bl	0x0000A690  ; restore all regs
+0x0003906C: 0x480000BD	bl	0x00039128 <-- DMA transfers and status reg read here (also, an interesting routine at A424 saves TBL at a certain point into SPRG3)
+                                           This function may also delay one frame occasionally, which explains why FV2 intro runs so slowly (30FPS)
+                                           Also, function A068 is called here, which does some sort of DEC frame timing.
+0x00039070: 0x4BFE947D	bl	0x000224EC
+0x00039074: 0x4800024D	bl	0x000392C0
+0x00039078: 0x4801CCE5	bl	0x00055D5C
+0x0003907C: 0x4BFCBF89	bl	0x00005004 <-- more DMA transfers here (at 5220, 88000000 is written)
+0x00039080: 0x80010004	lwz	r0,0x04(r1)
+0x00039084: 0x7C0803A6	mtspr	lr,r0
+0x00039088: 0x38210010	addi	r1,r1,0x10
+0x0003908C: 0x4E800020	bclr	0x14,0
+
+
+Decrementer waiting:
+
+  The game appears not to ever call wait_for_vbl() in the main loop. Instead,
+  it checks the decrementer, which is only ever set in the VBL IRQ. It checks
+  it in two places.
+
+  1. Subroutine A068. This performs some sort of precise timing and seems to
+     be called like this:
+
+        a068
+          21f10
+            21eb0
+              391a8 (an indirect call is made here)
+                3906c (this calls 39128)
+
+     In-game, when there are no textures being (including during the parts
+     of attract mode where no textures are uploaded), this subroutine is called
+     before DMA copies to 98xxxxxx. Then, at 3907c, a function is called to 
+     copy data to 8Exxxxxx and write 88000000.
+
+     When textures are uploaded via the VROM port during attract mode by
+     writing 90000000, a flush (88000000) is triggered after each write. And
+     a068 is called before each of the VROM texture port writes. Therefore,
+     this function appears to be some sort of sync-before-Real3D-access.
+
+  2. Subroutine A0E8.
+
+     This apparently waits for the next VBL but needs to be scrutinized more
+     carefully.
+     
+Frame behavior:
+
+  At start of intro sequence or just before:
+  
+    SubA0E8
+    *** VBLANK ***
+    SubA068
+    *** VBLANK ***
+    Real3D DMA copy (PC=00009B04, LR=00033404): 003C2D04 -> 98001000, 80
+    Real3D DMA copy (PC=00009BCC, LR=00005214): 007D8010 -> 8E000000, 740
+    Real3D DMA copy (PC=00009C64, LR=00003CEC): 007E2A10 -> 8E00AA00, 60
+    Real3D DMA copy (PC=00009C64, LR=00003CEC): 007EB6B0 -> 8E0136A0, 20
+    Real3D DMA copy (PC=00009B04, LR=00033468): 007FCE78 -> 88000000, 4
+    SubA0E8
+    SubA068
+    *** VBLANK ***
+    Real3D DMA copy (PC=00009B04, LR=00033404): 003C2D04 -> 98001000, 80
+    Real3D DMA copy (PC=00009B04, LR=00033404): 00340504 -> 94000000, AAB0
+    Real3D DMA copy (PC=00009B04, LR=00033468): 007FCF18 -> 88000000, 4
+    Real3D DMA copy (PC=00009BCC, LR=00005214): 007D8010 -> 8E000000, 740
+    Real3D DMA copy (PC=00009C64, LR=00003CEC): 007E2A10 -> 8E00AA00, 60
+    Real3D DMA copy (PC=00009C64, LR=00003CEC): 007EB6B0 -> 8E0136A0, 20
+    Real3D DMA copy (PC=00009B04, LR=00033468): 007FCE78 -> 88000000, 4
+    SubA0E8
+    *** VBLANK ***
+    SubA068
+    *** VBLANK ***
+    Real3D DMA copy (PC=00009B04, LR=00033404): 003C2D04 -> 98001000, 80
+    Real3D DMA copy (PC=00009B04, LR=00033404): 00340504 -> 94000000, AAB0
+    Real3D DMA copy (PC=00009B04, LR=00033468): 007FCF18 -> 88000000, 4
+    Real3D DMA copy (PC=00009BCC, LR=00005214): 007D8010 -> 8E000000, 740
+    Real3D DMA copy (PC=00009C64, LR=00003CEC): 007E2A10 -> 8E00AA00, 60
+    Real3D DMA copy (PC=00009C64, LR=00003CEC): 007EB6B0 -> 8E0136A0, 20
+    Real3D DMA copy (PC=00009B04, LR=00033468): 007FCE78 -> 88000000, 4
+    SubA0E8
+
+  In sequence (graphics being displayed):
+  
+    SubA0E8
+    *** VBLANK ***
+    SubA068
+    *** VBLANK ***
+    Real3D DMA copy (PC=00009BCC, LR=00021F5C): 003E51A8 -> 98002000, 850
+    Real3D DMA copy (PC=00009C64, LR=00003CEC): 003E5DE8 -> 98002850, 260
+    Real3D DMA copy (PC=00009C64, LR=00003CEC): 003E61F8 -> 98002AB0, 5F0
+    Real3D DMA copy (PC=00009C64, LR=00003CEC): 003E6AB8 -> 980030A0, 390
+    Real3D DMA copy (PC=00009C64, LR=00003CEC): 003E6FF8 -> 98003430, 390
+    Real3D DMA copy (PC=00009C64, LR=00003CEC): 003E7538 -> 980037C0, 720
+    Real3D DMA copy (PC=00009C64, LR=00003CEC): 003E7FB8 -> 98003EE0, 720
+    Real3D DMA copy (PC=00009C64, LR=00003CEC): 003E8A38 -> 98004600, 4C0
+    Real3D DMA copy (PC=00009C64, LR=00003CEC): 003E9138 -> 98004AC0, 4C0
+    Real3D DMA copy (PC=00009C64, LR=00003CEC): 003E9838 -> 98004F80, 4C0
+    Real3D DMA copy (PC=00009C64, LR=00003CEC): 003E9F38 -> 98005440, 4C0
+    Real3D DMA copy (PC=00009C64, LR=00003CEC): 00431C48 -> 98005900, 2F80
+    Real3D DMA copy (PC=00009C64, LR=00003CEC): 00441C48 -> 98008880, 1A20
+    Real3D DMA copy (PC=00009B04, LR=00009A7C): 003C2D04 -> 98001000, 80
+    Real3D DMA copy (PC=00009BCC, LR=00005214): 007D8010 -> 8E000000, BC8
+    Real3D DMA copy (PC=00009C64, LR=00003CEC): 007E2A10 -> 8E00AA00, 60
+    Real3D DMA copy (PC=00009C64, LR=00003CEC): 007E3040 -> 8E00B030, BA0
+    Real3D DMA copy (PC=00009C64, LR=00003CEC): 007DAD10 -> 8E002D00, BB8
+    Real3D DMA copy (PC=00009C64, LR=00003CEC): 007EB6B0 -> 8E0136A0, 1C0
+    Real3D DMA copy (PC=00009B04, LR=00033468): 007FCE78 -> 88000000, 4
+    SubA0E8
+    *** VBLANK ***
+    SubA068
+    *** VBLANK ***
+    Real3D DMA copy (PC=00009BCC, LR=00021F5C): 003E51A8 -> 98002000, 850
+    Real3D DMA copy (PC=00009C64, LR=00003CEC): 003E5DE8 -> 98002850, 260
+    Real3D DMA copy (PC=00009C64, LR=00003CEC): 003E61F8 -> 98002AB0, 5F0
+    Real3D DMA copy (PC=00009C64, LR=00003CEC): 003E6AB8 -> 980030A0, 390
+    Real3D DMA copy (PC=00009C64, LR=00003CEC): 003E6FF8 -> 98003430, 390
+    Real3D DMA copy (PC=00009C64, LR=00003CEC): 003E7538 -> 980037C0, 720
+    Real3D DMA copy (PC=00009C64, LR=00003CEC): 003E7FB8 -> 98003EE0, 720
+    Real3D DMA copy (PC=00009C64, LR=00003CEC): 003E8A38 -> 98004600, 4C0
+    Real3D DMA copy (PC=00009C64, LR=00003CEC): 003E9138 -> 98004AC0, 4C0
+    Real3D DMA copy (PC=00009C64, LR=00003CEC): 003E9838 -> 98004F80, 4C0
+    Real3D DMA copy (PC=00009C64, LR=00003CEC): 003E9F38 -> 98005440, 4C0
+    Real3D DMA copy (PC=00009C64, LR=00003CEC): 00431C48 -> 98005900, 2F80
+    Real3D DMA copy (PC=00009C64, LR=00003CEC): 00441C48 -> 98008880, 1A20
+    Real3D DMA copy (PC=00009B04, LR=00009A7C): 003C2D04 -> 98001000, 80
+    Real3D DMA copy (PC=00009BCC, LR=00005214): 007D8010 -> 8E000000, BC8
+    Real3D DMA copy (PC=00009C64, LR=00003CEC): 007E2A10 -> 8E00AA00, 60
+    Real3D DMA copy (PC=00009C64, LR=00003CEC): 007E3040 -> 8E00B030, BA0
+    Real3D DMA copy (PC=00009C64, LR=00003CEC): 007DAD10 -> 8E002D00, BB8
+    Real3D DMA copy (PC=00009C64, LR=00003CEC): 007EB6B0 -> 8E0136A0, 1C0
+    Real3D DMA copy (PC=00009B04, LR=00033468): 007FCE78 -> 88000000, 4
+    SubA0E8
+    *** VBLANK ***
+    SubA068
+    *** VBLANK ***
+    Real3D DMA copy (PC=00009BCC, LR=00021F5C): 003E51A8 -> 98002000, 850
+    Real3D DMA copy (PC=00009C64, LR=00003CEC): 003E5DE8 -> 98002850, 260
+    Real3D DMA copy (PC=00009C64, LR=00003CEC): 003E61F8 -> 98002AB0, 5F0
+    Real3D DMA copy (PC=00009C64, LR=00003CEC): 003E6AB8 -> 980030A0, 390
+    Real3D DMA copy (PC=00009C64, LR=00003CEC): 003E6FF8 -> 98003430, 390
+    Real3D DMA copy (PC=00009C64, LR=00003CEC): 003E7538 -> 980037C0, 720
+    Real3D DMA copy (PC=00009C64, LR=00003CEC): 003E7FB8 -> 98003EE0, 720
+    Real3D DMA copy (PC=00009C64, LR=00003CEC): 003E8A38 -> 98004600, 4C0
+    Real3D DMA copy (PC=00009C64, LR=00003CEC): 003E9138 -> 98004AC0, 4C0
+    Real3D DMA copy (PC=00009C64, LR=00003CEC): 003E9838 -> 98004F80, 4C0
+    Real3D DMA copy (PC=00009C64, LR=00003CEC): 003E9F38 -> 98005440, 4C0
+    Real3D DMA copy (PC=00009C64, LR=00003CEC): 00431C48 -> 98005900, 2F80
+    Real3D DMA copy (PC=00009C64, LR=00003CEC): 00441C48 -> 98008880, 1A20
+    Real3D DMA copy (PC=00009B04, LR=00009A7C): 003C2D04 -> 98001000, 80
+    Real3D DMA copy (PC=00009BCC, LR=00005214): 007D8010 -> 8E000000, BC8
+    Real3D DMA copy (PC=00009C64, LR=00003CEC): 007E2A10 -> 8E00AA00, 60
+    Real3D DMA copy (PC=00009C64, LR=00003CEC): 007E3040 -> 8E00B030, BA0
+    Real3D DMA copy (PC=00009C64, LR=00003CEC): 007DAD10 -> 8E002D00, BB8
+    Real3D DMA copy (PC=00009C64, LR=00003CEC): 007EB6B0 -> 8E0136A0, 1C0
+    Real3D DMA copy (PC=00009B04, LR=00033468): 007FCE78 -> 88000000, 4
+    SubA0E8  
+
+
+uint8_t _580e32;
+uint32_t _580e70;
+
+void suba068()
+{
+  if (_580e32 != 0)
+    return;
+
+  uint32_t start_time = read_tbl();
+  
+  // Value of DEC after 3300 cycles have elapsed (i.e., 3300 cycles since VBL 
+  // started). This value may not be coincidental. According to Charles'
+  // System 24 doc, if the tile generator is operating at 424 lines per frame,
+  // the breakdown is:
+  //
+  //   25 scanlines from /VSYNC high to /BLANK high (top border)
+  //  384 scanlines from /BLANK high to /BLANK low (active display)
+  //   11 scanlines from /BLANK low to /VSYNC low (bottom border)
+  //    4 scanlines from /VSYNC low to /VSYNC high (vertical sync. pulse)
+  //
+  // On System 24, the interrupt happens on the last line and is "asserted on
+  // the negative edge of H-sync before blanking is disabled and held for one
+  // scanline (656 pixels) such that it is negated on the negative edge of H-
+  // sync of the next scanline, line 384."
+  //
+  // Given:
+  //
+  //  - Assume 66 MHz bus frequency
+  //  - TBR and DEC registers tick once every 4 bus cycles
+  //  - Assume display rate of 57.52 Hz
+  //  - Assume 424 scanlines per frame
+  //
+  // Then the number of timer ticks per scanline would be:
+  //
+  //  ((66e6 / 4) / 57.52) / 424 = 676.5
+  //
+  // The value 3300 corresponds to 4.8 scanlines. If the IRQ is triggered on
+  // /VSYNC = 1 -> 0, they could be waiting out the vsync pulse and waiting for
+  // the *start* of the next active frame.
+  //
+
+  uint32_t value_after_delay = _dec_reload_on_vbl - 3300;
+
+  // Wait for VBL if decrementer is negative, which indicates that the allotted
+  // time to do things after VBL is triggered (calibrated at start-up) has
+  // already passed
+  if (read_dec() <= 0)
+  {
+    uint8_t old_value = _vbl_count;
+    while (_vbl_count == old_value)
+      ;
+  }
+
+  // This seems to make sure at least 3300 cycles have elapsed since VBL
+  while (read_dec() > value_after_delay)
+    ;
+
+  // How much time we wasted in this bullshit subroutine ;)
+  _580e70 = read_tbl() - start_time;
+
+  // Reset VBL count
+  _vbl_count = 0;
+
+  // Disables this routine the next time it is called. This is reset in
+  // suba0e8() at the end of the main application loop.
+  _580e32 = 1;
+}
+
+uint8_t _580e31;
+uint32_t _274300;
+uint32_t _274304;
+uint32_t _27430c;
+uint32_t _274314;
+uint32_t _274318;
+
+void suba0e8()
+{
+  sub39338();
+  sub3b444();
+  sub20db4();
+
+  uint32_t time = read_tbl();
+  _274318 = time;
+  _274304 = time - _274314;
+  _274300 = _274314 - _27430c;
+  if ((_591d14 & 0x00400000) != 0)
+  {
+    // Some crazy stuff here that does not seem to be executed (at least not in
+    // attract mode)
+    // TODO: translate me?
+  }
+
+  // Wait for next VBL to start
+  while (read_dec() < 0)
+    ;
+
+  // Unknown write to tilegen
+  write32(0xf118000c, bswap32(3));
+
+  // VBL has started, wait for decrementer exception to occur (wait for 
+  // calibrated time to pass)
+  uint8_t old_value = _dec_count;
+  while (_dec_count == old_value)
+    ;
+  if (_dec_count >= 2)
+    _580e31++;
+  _dec_count = 0;
+
+  // Re-enable the wait loops in suba068()
+  _580e32 = 0;
+}
+
+
+*******************************************************************************
+
+  Decrementer exception
+
+uint8_t _dec_count; // 580e5f decrementer exception count
+uint32_t _580e50;   // seems to be used to compute the time since IRQ 8
+
+void dec_handler() // 4164
+{
+  if (_580e48 != 0)
+    _580e50 = read_tbl() - _580e48;
+  else
+    _580e50 = 0;
+  _580e48 = 0;
+}
+
+0x00003D80: 0x3821FFC0	addi	r1,r1,-0x40
+0x00003D84: 0xBC01FF80	stmw	r0,-0x80(r1)
+0x00003D88: 0x3821FF80	addi	r1,r1,-0x80
+0x00003D8C: 0x7FFA02A6	mfspr	r31,srr0
+0x00003D90: 0x7FDB02A6	mfspr	r30,srr1
+0x00003D94: 0x7FA00026	mfcr	r29
+0x00003D98: 0x7F8802A6	mfspr	r28,lr
+0x00003D9C: 0x7F6902A6	mfspr	r27,ctr
+0x00003DA0: 0x7F4102A6	mfspr	r26,xer
+0x00003DA4: 0xBF41FFE8	stmw	r26,-0x18(r1)
+0x00003DA8: 0x3821FFC0	addi	r1,r1,-0x40
+0x00003DAC: 0x7CA000A6	mfmsr	r5
+0x00003DB0: 0x54A504E2	and	r5,r5,0xFFFFDFFF
+0x00003DB4: 0x60A51032	ori	r5,r5,0x1032
+0x00003DB8: 0x7CA00124	mtmsr	r5
+0x00003DBC: 0x4C00012C	isync	
+0x00003DC0: 0x3CA00058	li	r5,0x00580000
+0x00003DC4: 0x88A50E5F	lbz	r5,0xE5F(r5)
+0x00003DC8: 0x38A50001	addi	r5,r5,0x01
+0x00003DCC: 0x3C400058	li	r2,0x00580000
+0x00003DD0: 0x98A20E5F	stb	r5,0xE5F(r2)    ; _dec_count++
+0x00003DD4: 0x48000391	bl	dec_handler
+0x00003DD8: 0x38210040	addi	r1,r1,0x40
+0x00003DDC: 0xBB41FFE8	lmw	r26,-0x18(r1)
+0x00003DE0: 0x7F4103A6	mtspr	xer,r26
+0x00003DE4: 0x7F6903A6	mtspr	ctr,r27
+0x00003DE8: 0x7F8803A6	mtspr	lr,r28
+0x00003DEC: 0x7FAFF120	mtcrf	0xFF,r29
+0x00003DF0: 0x7FDB03A6	mtspr	srr1,r30
+0x00003DF4: 0x7FFA03A6	mtspr	srr0,r31
+0x00003DF8: 0x7C210B78	mr	r1,r1
+0x00003DFC: 0xB8410008	lmw	r2,0x08(r1)
+0x00003E00: 0x80010000	lwz	r0,0x00(r1)
+0x00003E04: 0x80210004	lwz	r1,0x04(r1)
+0x00003E08: 0x38210040	addi	r1,r1,0x40
+0x00003E0C: 0x4C000064	rfi	
+
+*******************************************************************************
+
+uint8_t g_irq_mask;
+
+;
+; IRQ handler
+;
+0x00003CA8: 0x3821FFC0	addi	r1,r1,-0x40
+0x00003CAC: 0xBC01FF80	stmw	r0,-0x80(r1)
+0x00003CB0: 0x3821FF80	addi	r1,r1,-0x80
+0x00003CB4: 0x7FFA02A6	mfspr	r31,srr0
+0x00003CB8: 0x7FDB02A6	mfspr	r30,srr1
+0x00003CBC: 0x7FA00026	mfcr	r29
+0x00003CC0: 0x7F8802A6	mfspr	r28,lr
+0x00003CC4: 0x7F6902A6	mfspr	r27,ctr
+0x00003CC8: 0x7F4102A6	mfspr	r26,xer
+0x00003CCC: 0xBF41FFE8	stmw	r26,-0x18(r1)
+0x00003CD0: 0x3821FFC0	addi	r1,r1,-0x40
+0x00003CD4: 0x7CA000A6	mfmsr	r5
+0x00003CD8: 0x54A504E2	and	r5,r5,0xFFFFDFFF
+0x00003CDC: 0x60A51032	ori	r5,r5,0x1032
+0x00003CE0: 0x7CA00124	mtmsr	r5
+0x00003CE4: 0x4C00012C	isync	
+0x00003CE8: 0x48005F05	bl	HandleDMAInterrupt  ; 0x00009BEC
+0x00003CEC: 0x48003649	bl	HandleSCSIInterrupt ; 0x00007334 -- how is this possible? No check is made for whether this device exists.
+0x00003CF0: 0x3C60FE10	li	r3,0xFE100000
+0x00003CF4: 0x88630018	lbz	r3,0x18(r3)         ; r3 = pending IRQs
+0x00003CF8: 0x3C800058	li	r4,0x00580000
+0x00003CFC: 0x88840E30	lbz	r4,0xE30(r4)        ; r4 = g_irq_mask
+0x00003D00: 0x7C632038	and	r3,r3,r4            ; r3 &= r4
+0x00003D04: 0x5465063E	and	r5,r3,0x000000FF
+0x00003D08: 0x7CA03120	mtcrf	0x03,r5           ; IRQ flags into cr6 and cr7
+0x00003D0C: 0x40960018	bf	cr5[eq],0x00003D24
+0x00003D10: 0x3C600058	li	r3,0x00580000
+0x00003D14: 0x88631321	lbz	r3,0x1321(r3)
+0x00003D18: 0x5460C801	rlwinm.	r0,r3,25,0x80000000
+0x00003D1C: 0x41820008	bt	cr0[eq],0x00003D24
+0x00003D20: 0x480036B1	bl	0x000073D0          ; some sort of time delay
+
+CR: LT GT EQ SO
+
+7 LT
+6 GT
+5 EQ
+4 SO
+3 LT
+2 GT
+1 EQ
+0 SO
+
+0x00003D24: 0x419F0111	btl	cr7[so],handle_irq_01 ; 0x00003E34  ; IRQ 0x01
+0x00003D28: 0x419E0131	btl	cr7[eq],handle_irq_02 ; 0x00003E58  ; IRQ 0x02
+0x00003D2C: 0x419D023D	btl	cr7[gt],handle_irq_04  ; 3f68 IRQ 0x04
+0x00003D30: 0x419C01D1	btl	cr7[lt],handle_irq_08 ; 0x00003F00  ; IRQ 0x08
+0x00003D34: 0x419A02D1	btl	cr6[eq],handle_irq_20 ; 0x00004004  ; IRQ 0x20
+0x00003D38: 0x419B00D9	btl	cr6[so],handle_irq_10 ; 0x00003E10  ; IRQ 0x10
+0x00003D3C: 0x419802B5	btl	cr6[lt],handle_irq_80 ; 0x00003FF0  ; IRQ 0x80
+0x00003D40: 0x41990291	btl	cr6[gt],handle_irq_40 ; 0x00003FD0  ; IRQ 0x40  MIDI interrupt
+0x00003D44: 0x38600005	li	r3,0x00000005
+0x00003D48: 0x38210040	addi	r1,r1,0x40
+0x00003D4C: 0xBB41FFE8	lmw	r26,-0x18(r1)
+0x00003D50: 0x7F4103A6	mtspr	xer,r26
+0x00003D54: 0x7F6903A6	mtspr	ctr,r27
+0x00003D58: 0x7F8803A6	mtspr	lr,r28
+0x00003D5C: 0x7FAFF120	mtcrf	0xFF,r29
+0x00003D60: 0x7FDB03A6	mtspr	srr1,r30
+0x00003D64: 0x7FFA03A6	mtspr	srr0,r31
+0x00003D68: 0x7C210B78	mr	r1,r1
+0x00003D6C: 0xB8410008	lmw	r2,0x08(r1)
+0x00003D70: 0x80010000	lwz	r0,0x00(r1)
+0x00003D74: 0x80210004	lwz	r1,0x04(r1)
+0x00003D78: 0x38210040	addi	r1,r1,0x40
+0x00003D7C: 0x4C000064	rfi	
+
+uint32_t _dec_reload_on_vbl; // 580e58
+void (*_irq_02_callback)();  // 580e3c (appears unused)
+uint8_t _vbl_count; // 580e5c
+uint32_t _5819f8;
+
+void handle_irq_02()
+{
+  set_dec(_dec_reload_on_vbl);
+  sub9fc0();
+  sub4198();
+  sub4210();  // inputs
+  sub42bc();  // inputs
+  read_real3d_status();
+  sub33b8();  // backup RAM related
+  sub38f4();
+  sub6ff80();
+  sub9ff0();  // appears to write to tilegen
+  
+  if (_irq_02_callback != 0)
+    _irq_02_callback();
+  _vbl_count++;
+  _5819f8++;
+  do
+  {
+    write32(0xf1180010, bswap32(2));
+  } while (read8(0xfe100018) & 2);  
+}
+
+void sub9ff0()
+{
+  sub3b308();
+  uint32_t tbl = read_tbl();
+  _274310 = tbl;
+  _2742fc = tbl - _tbl_this_irq02;  // time since irq02 began (measures elapsed time of IRQ02 handler?)
+}
+
+uint32_t _274640;
+
+void sub3b308()
+{
+  sub2017C();
+
+  if (_274640 == 0)
+    sub2027C(0xf10f8000, 0x30edcc, 0x800);  // sub2027C(r3, r4, r5);
+  else
+  {
+    sub2027C(0xf10fc000, 0x3111cc, 0x800);
+    _274640 = 0;
+  }
+
+  if (_27463c & 1)
+    sub2027C(0xf10f6000, 0x30e94c, 0x100);
+  if (_27463c & 2)
+    sub2027C(0xf10f6400, 0x30e14c, 0x100);
+  if (_27463c & 4)
+    sub2027C(0xf10f6800, 0x310dcc, 0x100);
+  if (_27463c & 8)
+    sub2027C(0xf10f6c00, 0x30e54c, 0x100);
+
+  if (_274634 != 0)
+    sub5B800();
+
+  if (_274638 != 0)
+  {
+    sub5BA8C();
+    _274638 = 0;
+  }
+}
+
+uint32_t _58f024;
+uint32_t _58fd4c;
+uint32_t _58fd84;
+uint32_t _58fd88;
+uint8_t _58fd98;
+uint8_t _58fdb1;
+uint8_t _58fdb2;
+uint8_t _58145a;
+
+uint32_t _11f288;
+uint32_t _11f28c;
+uint32_t _11f290;
+uint32_t _11f294;
+
+void sub6ff80()
+{
+  if ((_58fd4c & 0xc00) != 0) <-- re-check the bclr instruction meaning here
+    return;
+  
+  _11f288++; 
+  if (_58fd98 <= 3)  <-- re-check the bclr instruction meaning here
+    return;
+
+  if ((_58fd4c & 0x03000000) == 0)
+  {
+    _11f294++;
+    return;
+  }
+  
+  if (_58145a >= 1)
+  {
+    if (_58145a <= 2)
+      _11f28c++;
+    else if (_58145a == 3)
+      _11f290++;
+  }
+
+  if (_58fdb1 != 0)
+    _58fd84++;
+  if (_58fdb2 != 0)
+    _58fd88++;
+  return;
+}
+
+uint8_t _580f12;
+uint8_t _580f14;
+uint8_t _580f15;
+
+void sub38f4()
+{
+  uint8_t r16 = _580f04;
+  int retval = 0; // curiously, this is never read or returned (see assembly code to confirm)
+  uint8_t r3 = _580f14;
+  if (r3 != 0)
+    goto _3948;
+  uint8_t r4 = _580f12;
+  if (r4 == 0)
+    goto _3970;
+  r16 |= 1;
+  retval = 1;
+  r4 = r4 - 1;
+  _580f12 = r4;
+_3948:
+  r3 = r3 + 1;
+  if (r3 > 0xe)
+    r3 = 0;
+  _580f14 = r3;
+  if (r3 == 7)
+  {
+    r16 &= ~1;
+    retval = 1;
+  }
+_3970:
+  r3 = _580f15;
+  if (r3 == 0)
+  {
+    r4 = _580f13;
+    if (r4 == 0)
+      goto _end;
+    r16 |= 2;
+    r17 = 1;
+    r4 = r4 - 1;
+    _580f13 = r4;
+  }
+  r3 = r3 - 1;
+  if (r3 > 0xe)
+    r3 = 0;
+  _580f15 = r3;
+  if (r3 == 7)
+  {
+    r16 &= ~2;
+    retval = 1;
+  }
+_end:
+  _580f04 = r16;
+  return;
+}
+
+
+uint8_t _580e33;
+uint32_t _580eb0;
+uint32_t _580eb8;
+uint8_t _580f10;
+uint8_t _58fd98;
+
+void sub33b8()
+{
+  if (_58fd98 != 20 &&  // != 0x14
+      _58fd98 != 21)    // != 0x15
+  {
+    if ( (_580eb8 & 1) == 0 && (_580eb8 & 2) == 0 )
+    {
+      uint8_t r4 = _580f10;
+      uint32_t r3 = _580eb0;
+
+      //TODO: not super confident that I translated this logic correctly
+      if ((r3 & 8) == 0 && (r3 & 0x40000000) == 0)
+        _580f10 = 0;
+      else
+      {
+        if (r4 < 7)
+        {
+          r4++;
+          _580f10 = r4;
+          if (r4 == 7)
+            sub347c();
+        }
+      }
+    }
+    else
+      sub3598();    
+  }
+  
+  if (_580e33 != 0)
+  {
+    _580e33 = 0;
+    sub6E890(); // r3=0
+  }
+}
+
+uint8_t _110860[];
+
+uint8_t _580d75;
+uint16_t _580d7c;
+uint8_t _580f11;
+uint8_t _580f05;
+uint8_t _580f06;
+uint8_t _580f07;
+uint8_t _580f0f;
+
+void sub347C()
+{
+  uint8_t r3 = _580d7c == 1 ? _110860[_580d75] : _580d75;
+  if (r3 == 27) // 0x1b
+    return;
+  
+  if (_580f11 >= 9)
+    return;
+  _580f11 += 1;
+
+  _580f05 = 1;
+  
+  int reset = 0; // r4
+  uint8_t *r7 = 0x11f024;
+  uint32_t r5 = (uint32_t) r7[0x180];
+  uint32_t r6 = _580f0f;   // byte -- old value of _580f0f
+
+  if (r5 < _580f0f)
+  {
+    (*(uint32_t *) &r7[0x17c]) += 1;
+    r5++;
+    if (r5 >= _580f0f)
+      _580f06 = 0;
+    r7[0x180] = r5;
+    reset = 1;
+  }
+
+  if (_580d7c == 1 && r7[0x181] < r6)
+  {
+    (*(uint32_t *) &r7[0x17c]) += 1;
+    r5++;
+    if (r5 >= r6)
+      _580f07 = 0;
+    r7[0x181] = r5;
+    reset = 1;
+  }
+
+  sub20DB4();
+  if (retval == 1)
+    sub3B04();  // _580e33 = 1;
+}
+
+sub347c:
+  uint32_t r3 = _580d75;  // byte
+  uint16_t r0 = _580d7c;  // halfword
+  if (r0 != 1)
+    goto _34ac;
+  r3 = 0x110860 + r3;
+  r3 = *(uint8_t *) r3; // byte
+_34ac:
+  if (r3 == 0x1b) // 27
+    goto _3588;
+  r3 = _580f11; // byte
+  if (r3 >= 9)
+    goto _3588;
+  _580f11 = r3 + 1;
+  r3 = 1;
+  _580f05 = r3;
+  uint32_t r4 = 0;
+  uint8_t *r7 = 0x11f024; // 120000-0xFDC
+  uint32_t r5 = r7[0x180];  // byte
+  uint32_t r6 = _580f0f;   // byte
+  if (r5 >= r6)
+    goto _3530;
+  r3 = *(uint32_t *) (r7 + 0x17c);
+  r3++;
+  *(uint32_t *) (r7 + 0x17c) = r3;
+  r5++;
+  if (r5 < r6)
+    goto _3528;
+  _580f06 = 0;
+_3528:
+  *(uint8_t *) (r7 + 0x180) = r5;
+  r4 = 1;
+_3530:
+  r3 = _580d7c;  // byte!
+  if (r3 != 1)
+    goto _3578;
+  r5 = *(uint8_t *) (r7 + 0x181);
+  if (r5 >= r6)
+    goto _3578;
+  r3 = *(uint32_t *) (r7 + 0x17c);
+  r3++;
+  *(uint32_t *) (r7 + 0x17c) = r3;
+  r5++;
+  if (r5 < r6)
+    goto _3570;
+  r3 = 0;
+  _580f07 = 0;
+_3570:
+  *(uint8_t *) (r7 + 0x181) = r5;
+  r4 = 1;
+_3578:
+  sub20DB4();
+  if (r4 != 1)
+    goto _3588;
+  sub3B04();  // _580e33 = 1
+_3588:
+  return;
+  
+void sub20DB4()
+{
+  copy_to_backup_ram(0xfe0c1000, 0x11f024, 1604 / 2); // 0x11f024=0x120000-0xFDC
+}
+
+void copy_to_backup_ram(uint32_t *backup_ram_dest, uint16_t *src, size_t num_halfwords) // 202B8
+{
+  backup_ram_dest &= ~3;  // word align
+  src &= ~1;              // halfword align
+  num_halfwords &= 0xffff;
+  for (size_t i = 0; i < num_halfwords; i++)
+  {
+    *backup_ram_dest++ = bswap32(*src);
+  }
+}
+
+void sub3B04()
+{
+  _580e33 = 1;
+}
+
+uint32_t _real3d_regs[9];  // 581328-58134c (exclusive of last address)
+uint8_t _real3d_status_bits[5]; // 58134c, 58134d, 58134e (status bit), 58134f, 581350
+
+void read_real3d_status()  // 4018
+{
+  for (int i = 0; i < 9; i++)
+  {
+    _real3d_regs[i] = read_real3d_reg(i*4);
+  } 
+  _real3d_status_bits[0] = (_real3d_regs[0] >> (32 - 5)) & 1; // bit 27
+  _real3d_status_bits[1] = (_real3d_regs[0] >> (32 - 6)) & 1; // bit 26
+  _real3d_status_bits[2] = (_real3d_regs[0] >> (32 - 7)) & 1; // bit 25 -- the mystery status bit (written to byte at 0x58134e; search code base for '0x134E')
+  _real3d_status_bits[3] = (_real3d_regs[0] >> (32 - 8)) & 1; // bit 24
+  _real3d_status_bits[4] = (_real3d_regs[0] >> (32 - 9)) & 1; // bit 23
+}
+
+
+void read_real3d_reg(int reg_offset)  // 99ec
+{
+  if (_580e88 & 0x80)
+  {
+    // Step 2.x pathway? Access registers through an indirect mechanism. This
+    // address range is the DMA device on Step 2.x, so maybe 0xc2xxxxxx is for
+    // Real3D on all steppings, with specific functionality varying between 1.x
+    // and 2.x boards.
+    while (read8(0xc200000c) & 0x80)
+      ;
+    reg_offset = 0x80000000 + (reg_offset & 0xfc);
+    write32(0xc2000010, bswap32(reg_offset));
+    return bswap32(read32(0xc2000014));
+  }
+  else
+  {
+    // Step 1.x pathway? Access status registers directly.
+    reg &= 0x3c;
+    return bswap32(read32(0x84000000 + reg_offset)));
+  }
+}
+
+uint8_t _580f04;
+
+void sub4210()
+{
+  write8(0xfe040014, _580f04);
+}
+
+uint32_t _580e54; // <-- this is read in only a single place in the code base, and used in some sort of calculation
+
+void sub4198()
+{
+  uint32_t tbl = read_tbl();
+  if (_580e4c != 0)
+    _580e54 = tbl - _580e4c;
+  else
+    _580e54 = 0;
+  _580e4c = 0;
+}
+
+
+uint32_t _tbl_last_irq02; //274308; the TBL value before the most recent IRQ 02
+uint32_t _tbl_this_irq02; //27430c; the TBL value at the most recent IRQ 02
+uint32_t _time_between_irq02; //2742f8;
+uint32_t _2742fc;
+uint32_t _274310;
+
+void sub9fc0()
+{
+  _tbl_last_irq02 = _tbl_this_irq02;
+  _tbl_this_irq02 = read_tbl();
+  _time_between_irq02 = _tbl_this_irq02 - tbl_last_irq02;
+}
+
+void (*_irq_04_callback)();  // 580e40  -- seems to always be
+uint8_t _580e5e;
+uint32_t _580e4c; // holds TBL value at time of IRQ 4
+
+void handle_irq_04()
+{
+  _580e4c = read_tbl();
+  if (_irq_04_callback != 0)
+    _irq_04_callback();
+  _580e5e++;
+  do
+  {
+    write32(0xf1180010, bswap32(4));
+  } while (read8(0xfe100018) & 4);
+}
+
+void (*_irq_08_callback)(); // 580e44
+uint32_t _580e48; // holds TBL at time of IRQ 8
+
+void handle_irq_08()
+{
+  _580e48 = read_tbl();
+  if (_irq_08_callback != 0)
+    _irq_08_callback();
+  _580e5d++;
+  do
+  {
+    write32(0xf1180010, bswap32(8));
+  } while (read8(0xfe100018) & 8);
+}
+
+void handle_irq_04()
+{
+  // Wait for IRQ to clear itself
+  while (read8(0xfe100018) & 0x20)
+    ;
+}
+
+void handle_irq_10()
+{
+  write32(0xc0010080, bswap32(0xffffffff));
+  while (read8(0xfe100018) & 0x10)
+    ;
+}
+
+void handle_irq_80()
+{
+  while (read8(0xfe100018) & 0x80)
+    ;
+}
+
+
+uint8_t _580e88;
+uint8_t _dma_xfers_pending; // 581320;
+uint32_t *g_dma_list; //_581324;
+
+void HandleDMAInterrupt() // 9BEC
+{
+  // Is DMA device present (Step 2.x)?
+  if (!(_580e88 & 0x80))
+    return;
+  
+  // No DMA was triggered, no ack required
+  if ((read8(0xc200000c) & 1) == 0)
+    return;
+  
+  // Ack DMA IRQ and wait until de-asserted
+  do
+  {
+    write8(0xc200000d, 1);
+  } while (read8(0xc200000c) & 1);
+  
+  // Next DMA transfer
+  g_dma_list += 3;
+  
+  // Oddly, 98080000, which looks like an address, is used as an end-of-list
+  // sentinel and is stored in the length parameter
+  uint32_t num_bytes = bswap32(g_dma_list[0]);
+  if (num_bytes == 0x98080000)
+  {
+    _dma_xfers_pending = 0;
+    return;
+  }
+
+  // Perform next transfer  
+  write32(0xc2000000, g_dma_list[1]); // source address
+  write32(0xc2000004, g_dma_list[2]); // dest address
+  write32(0xc2000008, bswap32((num_bytes / 4) & 0xffff));
+}
+
+void handle_irq_01()
+{
+  do
+  {
+    write32(0xf1180010, bswap32(0x01));
+  } while (read32(0xfe100018) & 1);
+}
+
+*******************************************************************************
+
+  Particularly tricky and error-prone translated routines are saved here
+  in assembly form
+
+0x00032F60: 0x9421FFE0	stwu	r1,-0x20(r1)
+0x00032F64: 0x7C0802A6	mfspr	r0,lr
+0x00032F68: 0x9361000C	stw	r27,0x0C(r1)
+0x00032F6C: 0x93810010	stw	r28,0x10(r1)
+0x00032F70: 0x93A10014	stw	r29,0x14(r1)
+0x00032F74: 0x93C10018	stw	r30,0x18(r1)
+0x00032F78: 0x93E1001C	stw	r31,0x1C(r1)
+0x00032F7C: 0x90010004	stw	r0,0x04(r1)
+0x00032F80: 0x7C7E1B78	mr	r30,r3                  ; r30 = r3 (param1)
+0x00032F84: 0x801E0000	lwz	r0,0x00(r30)            ; r0 = *param1
+0x00032F88: 0x2C80FFFF	cmpi	cr1,0,r0,-0x01        
+0x00032F8C: 0x418600D8	bt	cr1[eq],0x00033064      ; if (*param1 == -1) goto _33064
+0x00032F90: 0x20040000	subfic	r0,r4,0x00          ; r0 = 0 - param2
+0x00032F94: 0x7F602114	adde	r27,r0,r4             ; r27 = -param2 + param2 + (0 >= uint32_t(param2)) ? 1 : 0 = (0 >= uint32_t(param2)) ? 1 : 0
+0x00032F98: 0x689C0001	xori	r28,r4,0x0001         ; r28 = param2 ^ 1
+0x00032F9C: 0x201C0000	subfic	r0,r28,0x00         ; r0 = -(param2 ^ 1)
+0x00032FA0: 0x7F80E114	adde	r28,r0,r28            ; r28 = -(param2 ^ 1) + (param2 ^ 1) + (0 >= (param2^1)) ? 1 : 0 = (0 >= (param2^1)) ? 1 : 0
+0x00032FA4: 0x7FC0F378	mr	r0,r30                  ; _32fa4: r0 = param1
+0x00032FA8: 0x7FE0042C	lwbrx	r31,0,r0              ; r31 = bswap32(*param1)
+0x00032FAC: 0x3C000007	li	r0,0x00070000
+0x00032FB0: 0x6000FFFF	ori	r0,r0,0xFFFF            ; r0 = 0x7ffff
+0x00032FB4: 0x7C1F0010	subc	r0,r0,r31             ; r0 = 0x7ffff - r31
+0x00032FB8: 0x38000000	li	r0,0x00000000
+0x00032FBC: 0x7C000114	adde	r0,r0,r0              ; r0 = 0x7ffff >= r31 ? 1 : 0
+0x00032FC0: 0x7F690039	and.	r9,r27,r0             ; r9 = r27 & r0
+0x00032FC4: 0x3BDE0004	addi	r30,r30,0x04          ; r30 += 4
+0x00032FC8: 0x7FC0F378	mr	r0,r30                  ; r0 = r30 = param1 + 4 
+0x00032FCC: 0x7FA0042C	lwbrx	r29,0,r0              ; r29 = bswap32(*r0)
+0x00032FD0: 0x3BDE0004	addi	r30,r30,0x04          ; r30 += 4
+0x00032FD4: 0x41820054	bt	cr0[eq],0x00033028      ; if r9 == 0 goto _33028
+0x00032FD8: 0x37FFFFF0	addic.	r31,r31,-0x10       ; r31 -= 16
+0x00032FDC: 0x4082000C	bf	cr0[eq],0x00032FE8      ; if (r31 != 0) goto _32fe8
+0x00032FE0: 0x7FC3F378	mr	r3,r30                  ; r3 = r30
+0x00032FE4: 0x4BFFFDDD	bl	0x00032DC0              ; sub32dc0(r30)
+0x00032FE8: 0x3D200058	li	r9,0x00580000           ; _32fe8:
+0x00032FEC: 0x80090C7C	lwz	r0,0xC7C(r9)            ; r0 = _580c7c
+0x00032FF0: 0x7C9F0000	cmp	cr1,0,r31,r0            ; if (r31 != _580c7c) goto _33004
+0x00032FF4: 0x40860010	bf	cr1[eq],0x00033004
+0x00032FF8: 0x7FC3F378	mr	r3,r30
+0x00032FFC: 0x7FA4EB78	mr	r4,r29
+0x00033000: 0x4BFFFDED	bl	0x00032DEC              ; sub32dec(r30, r29)
+0x00033004: 0x3D200058	li	r9,0x00580000           ; _33004:
+0x00033008: 0x80090C84	lwz	r0,0xC84(r9)
+0x0003300C: 0x7C9F0000	cmp	cr1,0,r31,r0            ; if (r31 != _580c84) goto _33020
+0x00033010: 0x40860010	bf	cr1[eq],0x00033020
+0x00033014: 0x7FC3F378	mr	r3,r30
+0x00033018: 0x7FA4EB78	mr	r4,r29
+0x0003301C: 0x4BFFFE15	bl	0x00032E30              ; sub32e30(r30, r29)
+0x00033020: 0x67E38E00	ori	r3,r31,0x8E000000       ; _33020: r3 = r31 | 0x8e000000
+0x00033024: 0x48000024	b	0x00033048                ; goto _33048
+0x00033028: 0x3C00000F	li	r0,0x000F0000           ; _33028:
+0x0003302C: 0x6000FFFF	ori	r0,r0,0xFFFF            ; r0 = 0x000fffff
+0x00033030: 0x7C1F0010	subc	r0,r0,r31             ; r0 = 0x000fffff - r31
+0x00033034: 0x7C000110	subfe	r0,r0,r0              ; r0 = 0x000fffff >= r31 ? 0 : -1
+0x00033038: 0x7C0000D0	neg	r0,r0                   ; r0 = 0x000fffff >= r31 ? 0 : 1
+0x0003303C: 0x7F890039	and.	r9,r28,r0             ; r9 = r28 & r0
+0x00033040: 0x41820014	bt	cr0[eq],0x00033054      ; if (r9 == 0) goto _33054
+0x00033044: 0x67E38C00	ori	r3,r31,0x8C000000       ; r3 = 0x8c000000 + r31
+0x00033048: 0x7FC4F378	mr	r4,r30                  ; _33048:
+0x0003304C: 0x7FA5EB78	mr	r5,r29
+0x00033050: 0x4BFFFE19	bl	0x00032E68              : sub32e68(r3, r30, r29)
+0x00033054: 0x57A0103A	rlwinm	r0,r29,2,0xFFFFFFFC : _33054: r0 = r29 * 4
+0x00033058: 0x7C1E006E	lwzux	r0,r30,r0             ; r0 = bswap32(r30 + r0); r30 += r0;
+0x0003305C: 0x2C80FFFF	cmpi	cr1,0,r0,-0x01        ; if r0 == -1 goto _32fa4
+0x00033060: 0x4086FF44	bf	cr1[eq],0x00032FA4
+0x00033064: 0x80010004	lwz	r0,0x04(r1)
+0x00033068: 0x7C0803A6	mtspr	lr,r0
+0x0003306C: 0x8361000C	lwz	r27,0x0C(r1)
+0x00033070: 0x83810010	lwz	r28,0x10(r1)
+0x00033074: 0x83A10014	lwz	r29,0x14(r1)
+0x00033078: 0x83C10018	lwz	r30,0x18(r1)
+0x0003307C: 0x83E1001C	lwz	r31,0x1C(r1)
+0x00033080: 0x38210020	addi	r1,r1,0x20
+0x00033084: 0x4E800020	bclr	0x14,0

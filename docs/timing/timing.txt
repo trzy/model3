@@ -66,6 +66,133 @@ polygon RAM. It then syncs to VBL again before uploading data to ping pong RAM.
     Real3D DMA copy (PC=0000391C, LR=00003968): 0074A780 -> 98001000, 100   36.38% 3236693495 
 
 
+Which RAM Regions are Double Buffered?
+--------------------------------------
+
+The term "ping pong memory" is applied by the Real3D SDK to 0x8e000000
+exclusively. Games diligently avoid writing ping pong RAM and culling RAM in
+the same frame.
+
+LA Machineguns violates this. The contents of the viewports have not yet been
+examined in detail but presumably, they are carefully set up to avoid touching
+the culling RAM regions that are being copied over. Note that the renderer is
+not drawing anything during these frames (4 nodes traversed, 2 models drawn).
+
+  *** VBLANK ***
+  Real3D DMA copy (PC=0000391C, LR=000039D0): 0075779C -> 8E000000, C0 (byte reversed)	16.90% 2026569588
+  Real3D DMA copy (PC=0000391C, LR=000039D0): 00757884 -> 8E0000C0, 28 (byte reversed)	16.91% 2026569726
+  Real3D DMA copy (PC=0000391C, LR=000039D0): 007578BC -> 8E000100, C0 (byte reversed)	16.92% 2026569871
+  Real3D DMA copy (PC=0000391C, LR=000039D0): 007579A4 -> 8E0001C0, 28 (byte reversed)	16.93% 2026570009
+  Real3D DMA copy (PC=0000391C, LR=00003968): 00740504 -> 8E00D800, 270 	16.95% 2026570173
+  Real3D DMA copy (PC=0000391C, LR=00003968): 0073BCFC -> 8E00DA70, 4800 	16.96% 2026570317
+  Real3D DMA copy (PC=0000391C, LR=00003968): 0074B784 -> 8E012270, 60 	16.97% 2026570461
+  Real3D DMA copy (PC=0000391C, LR=00003968): 00758524 -> 8E001800, 1FC4 	16.99% 2026570667
+  Real3D DMA copy (PC=0000391C, LR=00003968): 00740778 -> 8E003800, 50 	17.00% 2026570808
+  Real3D DMA copy (PC=0000391C, LR=00003968): 007FDF50 -> 88000000, 4 	17.01% 2026570958
+  Real3D: Flush	17.01%
+  Render: 2 nodes, 1 models
+  DEC exception 90.9%
+  Real3D DMA copy (PC=0000391C, LR=00003968): 0074A780 -> 98001000, 100 	93.77% 2027530509
+  *** VBLANK ***
+  Real3D DMA copy (PC=0000391C, LR=00003968): 006D9644 -> 8C180000, 1CDE0 	17.32% 2027824886
+  Real3D DMA copy (PC=0000391C, LR=000039D0): 0075779C -> 8E000000, C0 (byte reversed)	17.35% 2027825229
+  Real3D DMA copy (PC=0000391C, LR=000039D0): 00757884 -> 8E0000C0, 28 (byte reversed)	17.36% 2027825367
+  Real3D DMA copy (PC=0000391C, LR=000039D0): 007578BC -> 8E000100, C0 (byte reversed)	17.37% 2027825512
+  Real3D DMA copy (PC=0000391C, LR=000039D0): 007579A4 -> 8E0001C0, 28 (byte reversed)	17.38% 2027825650
+  Real3D DMA copy (PC=0000391C, LR=00003968): 00740504 -> 8E00D800, 270 	17.40% 2027825814
+  Real3D DMA copy (PC=0000391C, LR=00003968): 0073BCFC -> 8E00DA70, 4800 	17.41% 2027825958
+  Real3D DMA copy (PC=0000391C, LR=00003968): 0074B784 -> 8E012270, 60 	17.42% 2027826102
+  Real3D DMA copy (PC=0000391C, LR=00003968): 00758524 -> 8E001800, 1FC4 	17.44% 2027826308
+  Real3D DMA copy (PC=0000391C, LR=00003968): 00740778 -> 8E003800, 50 	17.45% 2027826449
+  Real3D DMA copy (PC=0000391C, LR=00003968): 007FDF50 -> 88000000, 4 	17.46% 2027826599
+  Real3D: Flush	17.46%
+  Render: 4 nodes, 2 models
+  DEC exception 90.9%
+  -------- 8C=118240 bytes, 8E=27828 bytes (frame in progress: FLUSH last frame)--------
+  Real3D DMA copy (PC=0000391C, LR=00003968): 0074A780 -> 98001000, 100 	93.80% 2028780872
+  *** VBLANK ***
+  Real3D DMA copy (PC=0000391C, LR=000039D0): 0075779C -> 8E000000, C0 (byte reversed)	1.89% 2028881991
+  Real3D DMA copy (PC=0000391C, LR=000039D0): 00757884 -> 8E0000C0, 28 (byte reversed)	1.90% 2028882129
+  Real3D DMA copy (PC=0000391C, LR=000039D0): 007578BC -> 8E000100, C0 (byte reversed)	1.91% 2028882274
+  Real3D DMA copy (PC=0000391C, LR=000039D0): 007579A4 -> 8E0001C0, 28 (byte reversed)	1.93% 2028882412
+  Real3D DMA copy (PC=0000391C, LR=00003968): 00740504 -> 8E00D800, 270 	1.94% 2028882576
+  Real3D DMA copy (PC=0000391C, LR=00003968): 0073BCFC -> 8E00DA70, 4800 	1.95% 2028882720
+  Real3D DMA copy (PC=0000391C, LR=00003968): 0074B784 -> 8E012270, 60 	1.96% 2028882864
+  Real3D DMA copy (PC=0000391C, LR=00003968): 00758524 -> 8E001800, 1FC4 	1.98% 2028883070
+  Real3D DMA copy (PC=0000391C, LR=00003968): 00740778 -> 8E003800, 50 	1.99% 2028883211
+  Real3D DMA copy (PC=0000391C, LR=00003968): 007FDF50 -> 88000000, 4 	2.00% 2028883361
+  Real3D: Flush	2.00%
+  Render: 4 nodes, 2 models
+  DEC exception 90.9%
+  Real3D DMA copy (PC=0000391C, LR=00003968): 0074A780 -> 98001000, 100 	93.85% 2030031440
+  *** VBLANK ***
+
+Fighting Vipers 2 comes close to violating this. It seems to synchronize the
+transfer to culling RAM to happen immediately after the DEC exception fires
+(which in turn indicates the ping pong bit has flipped). Although the sync
+routine has not been identified, varying the % of frame at which the flip
+occurs produces the same result: culling memory is written directly after,
+indicating that some sort of sync is indeed occurring.
+
+It may be that the copies are triggered from the DEC exception handler.
+
+  *** VBLANK ***
+  Real3D DMA copy (PC=00009B04, LR=00033404): 003C2D04 -> 98001000, 80 	1.68% 816382250
+  Real3D DMA copy (PC=00009BCC, LR=00005214): 007D8010 -> 8E000000, 740 	1.85% 816384343
+  Real3D DMA copy (PC=00009C64, LR=00003CEC): 007E2A10 -> 8E00AA00, 60 	1.85% 816384392
+  Real3D DMA copy (PC=00009C64, LR=00003CEC): 007EB6B0 -> 8E0136A0, 20 	1.86% 816384483
+  Real3D DMA copy (PC=00009B04, LR=00033468): 007FCE78 -> 88000000, 4 	1.88% 816384737
+  Real3D: Flush	1.88%
+  DEC exception 90.4%
+  *** VBLANK ***
+  Real3D DMA copy (PC=00009B04, LR=00033404): 003C2D04 -> 98001000, 80 	1.68% 817632250
+  Real3D DMA copy (PC=00009BCC, LR=00005214): 007D8010 -> 8E000000, 740 	1.85% 817634341
+  Real3D DMA copy (PC=00009C64, LR=00003CEC): 007E2A10 -> 8E00AA00, 60 	1.85% 817634390
+  Real3D DMA copy (PC=00009C64, LR=00003CEC): 007EB6B0 -> 8E0136A0, 20 	1.86% 817634481
+  Real3D DMA copy (PC=00009B04, LR=00033468): 007FCE78 -> 88000000, 4 	1.88% 817634735
+  Real3D: Flush	1.88%
+  DEC exception 90.4%
+  Real3D DMA copy (PC=00009B04, LR=00033404): 00798000 -> 8C1E0000, 28 	90.49% 818742342
+  -------- 8C=40 bytes, 8E=1984 bytes (frame in progress: FLUSH last frame)--------
+  *** VBLANK ***
+  Real3D DMA copy (PC=00009B04, LR=00033404): FFA82000 -> 98040000, 85C 	0.55% 818868067
+  Real3D DMA copy (PC=00009B04, LR=00033468): 007FCE98 -> 88000000, 4 	0.56% 818868287
+  Real3D: Flush	0.56%
+  Real3D DMA copy (PC=00009B04, LR=00033404): 00798000 -> 8C1E0028, 28 	0.60% 818868697
+  DEC exception 90.4%
+  *** VBLANK ***
+  
+  ... many frames ommitted ...
+  
+  *** VBLANK ***
+  Real3D DMA copy (PC=00009B04, LR=00033404): FFBA3918 -> 98161918, 1300 	0.55% 1378866723
+  Real3D DMA copy (PC=00009B04, LR=00033468): 007FCE98 -> 88000000, 4 	0.56% 1378866943
+  Real3D: Flush	0.56%
+  Real3D DMA copy (PC=00009B04, LR=00033404): 00798000 -> 8C1E5E38, 28 	0.60% 1378867353
+  DEC exception 90.4%
+  *** VBLANK ***
+  Real3D DMA copy (PC=00009B04, LR=00033404): FFBA4C18 -> 98162C18, 1300 	0.55% 1380116718
+  Real3D DMA copy (PC=00009B04, LR=00033468): 007FCE98 -> 88000000, 4 	0.56% 1380116938
+  Real3D: Flush	0.56%
+  Real3D DMA copy (PC=00009B04, LR=00033404): 003C2D04 -> 98001000, 80 	1.68% 1380130897
+  Real3D DMA copy (PC=00009BCC, LR=00005214): 007D8010 -> 8E000000, 740 	1.85% 1380132990
+  Real3D DMA copy (PC=00009C64, LR=00003CEC): 007E2A10 -> 8E00AA00, 60 	1.85% 1380133039
+  Real3D DMA copy (PC=00009C64, LR=00003CEC): 007EB6B0 -> 8E0136A0, 20 	1.86% 1380133130
+  Real3D DMA copy (PC=00009B04, LR=00033468): 007FCE78 -> 88000000, 4 	1.88% 1380133384
+  Real3D: Flush	1.88%
+  DEC exception 90.4%
+  
+Sega Rally 2 also violates it. But as in the other cases, culling RAM set up is
+done relatively infrequently, during loading and scene transitions. Sega Rally
+2 copies large quantities of data at once during these sequences. It does
+appear to flush the frame preceding the first writes to culling RAM and this
+frame does have some data.
+
+Star Wars is similar in its behavior to Sega Rally 2. Both games also share a
+sensitivity to IRQ 0x01 indicating that they may share underlying firmware
+code.
+
+
 Sensitivity to Timing
 ---------------------
 

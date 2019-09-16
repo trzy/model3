@@ -1,0 +1,101 @@
+sub7408()
+{
+  uint32_t t = 0x21;
+  // wait for 0x21 cycles using 64-bit arithmetic [TBU:TBL]
+  
+}
+
+uint8_t sub7410(uint32_t scsi_base)
+{
+  uint8_t r2 = read8(scsi_base + 0x14); // ISTAT
+  if (r2 & 0x4)   // INTFLY set (INTFLY occurred, SCRIPTS still executing)
+  {
+    r2 &= 0xfb;   // clear? manual says should be written as 1 to clear
+    write8(scsi_base + 0x14, r2);
+  }
+  if ((r2 & 0x01) == 0) // DIP (DMA interrupt pending)
+    return 0;
+  return read8(scsi_base + 0x0c); // return DSTAT (DMA status)
+}
+
+sub8fe0()
+{
+  uint32_t start = ppc_read_tbl();
+  while (_581320 != 0) // byte
+    ;
+  _581321 &= 0x7f;
+  uint32_t end = ppc_read_tbl();
+  _580e60 += _(end - start);
+}
+
+do_dma_copy(uint32_t dest_addr, uint32_t *src, uint32_t num_words)
+{
+  uint32_t r27 = num_words;
+  uint32_t scsi_base = 0xc1000000;
+  uint32_t *r28 = src;
+  uint32_t r29 = dest_addr;
+  if (_581321 & 0x80)
+    sub8fe0();
+  _581321 |= 0x80;
+  sub7410();
+  uint32_t *r3 = &_5812ec;
+  uint32_t r5 = ((r27 * 4) & 0x00fffffc) + 0xc0000000;
+  *(r3+1) = bswap32(r5);
+  r3++;
+  *(r3+1) = bswap32(r28);
+  r3++
+  *(r3+1) = bswap32(r29);
+  r3++;
+  *(r3+1) = bswap32(0x98080000);
+  r3++;
+  *(r3+1) = bswap32(1);
+  r3++;
+  
+  _581324 = &_5812f0; // write 0x5812f0 to dword at 581324 (note 5812f0 = 5812ec+4)
+  write32(scsi_base + 0x2c, bswap32(&_5812f0));
+  
+  _581321 |= 0x40;  // byte
+  _581320 = 0xff;   // byte
+  write8(scsi_base + 0x3b, read8(scsi_base + 0x3b) | 0x14);
+  sub7408();
+  _581321 &= 0xbf;
+}  
+  
+  
+HandleSCSIInterrupt()
+{
+  uint32_t scsi = 0xc1000000;
+  uint8_t istat = read8(scsi + 0x14);
+  if (istat & 0x4)
+  {
+    istat &= 0xfb;
+    write8(scsi + 0x14, istat);
+  }
+  if (!(istat & 1))
+    return 0x200;
+    
+  uint32_t dsp = ppc_lwbrx(scsi + 0x2c);
+  _581324 += 3;
+  
+  if (_581324 != dsp)
+  {
+    _581322 += 1; // byte
+  }
+  
+  uint32_t inst = *_581324;
+  if (inst == bswap32(0x98080000))
+  {
+    _581320 = 0;  // byte
+    return 0x400;
+  }
+  
+  uint8_t dcntl = read8(scsi + 0x3b);
+  dcntl |= 0x14;
+  write8(scsi + 0x3b, dcntl);
+  
+  uint32_t t0 = ppc_read_tbl();
+  while (ppc_read_tbl() - t0 <= 0x21)
+    ;
+  
+  return 0x400;
+}

@@ -1,0 +1,6 @@
+Place the following Virtua Fighter 3 ROMs in this directory:
+
+  epr-19227c.17   crc32=A7DF4D75
+  epr-19228c.18   crc32=9C5727E2
+  epr-19229c.19   crc32=731B6B78
+  epr-19230c.20   crc32=736A9431

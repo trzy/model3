@@ -1,0 +1,333 @@
+r13 = 0x108000
+
+
+Program Loader
+--------------
+
+  VF3 CROM size:            2MB
+  Located at:               0xFFE00000 - 0xFFFFFFFF
+  Main program copied from: 0xFFF10000 -> 0 (0x28000 words)
+  Offset within 2MB CROM:   0xFFF10000 - 0xFFE00000 = 0x110000
+
+
+Main Loop
+---------
+
+Ends at: 3e58
+
+Notable points:
+  3dcc  <-- SCSI transfers to tilegen, polygon RAM
+  3e14  <-- SCSI transfers to 8E RAM and flush
+  
+
+Warning Screen
+--------------
+
+  3DCC ->
+    3F84 ->
+      F1E0
+    
+
+IRQ 0x04
+--------
+
+IRQ 0x04 timestamp (7fdc) is recorded by the IRQ 0x04 handler at 1b9c by
+calling subroutine 1da8.
+
+  uint32_t _irq04_timestamp;  // -7fdc(r13)
+  void (*_irq04_callback)();  // -7fe8(r13) 0x100018
+  uint8_t _irq04_count;       // -7fca(r13)
+
+  void IRQ04Handler()
+  {
+    _irq04_timestamp = read_tbl();
+    if (_irq04_callback != 0)
+    {
+      _irq04_callback();
+    }
+    
+    _irq04_count += 1;
+    
+    // Ack IRQ and wait for clear
+    uint8_t pending;
+    do
+    {
+      write32_reversed(0xf1180010, 0x04);
+      pending = read8(0xf0100018) & 4;
+    } while (pending != 0);
+  }
+  
+Value of _irq04_callback:
+
+  Appears to always be 0 (unused)
+
+IRQ04Handler:
+  0x00001B9C: 0x3821FFF0	addi	r1,r1,-0x10
+  0x00001BA0: 0x7C0802A6	mfspr	r0,lr
+  0x00001BA4: 0x90010000	stw	r0,0x00(r1)
+  0x00001BA8: 0x48000201	bl	0x00001DA8
+  0x00001BAC: 0x804D8018	lwz	r2,-0x7FE8(r13)
+  0x00001BB0: 0x2C020000	cmpi	cr0,0,r2,0x00
+  0x00001BB4: 0x7C4803A6	mtspr	lr,r2
+  0x00001BB8: 0x4C820021	bclrl	0x04,cr0[eq]
+  0x00001BBC: 0x80010000	lwz	r0,0x00(r1)
+  0x00001BC0: 0x7C0803A6	mtspr	lr,r0
+  0x00001BC4: 0x38210010	addi	r1,r1,0x10
+  0x00001BC8: 0x886D8036	lbz	r3,-0x7FCA(r13)
+  0x00001BCC: 0x38630001	addi	r3,r3,0x01
+  0x00001BD0: 0x986D8036	stb	r3,-0x7FCA(r13)
+  0x00001BD4: 0x38800004	li	r4,0x00000004
+  0x00001BD8: 0x3CA0F118	li	r5,0xF1180000
+  0x00001BDC: 0x38A50010	addi	r5,r5,0x10
+  0x00001BE0: 0x7C802D2C	stwbrx	r4,0,r5
+  0x00001BE4: 0x3C60F010	li	r3,0xF0100000
+  0x00001BE8: 0x88630018	lbz	r3,0x18(r3)
+  0x00001BEC: 0x70630004	andi.	r3,r3,0x0004
+  0x00001BF0: 0x40A2FFF0	bf	cr0[eq],0x00001BE0
+  0x00001BF4: 0x4E800020	bclr	0x14,0
+
+
+IRQ 0x08
+--------
+
+IRQ 0x08 timestamp (7fe0) is recorded by the IRQ 0x08 handler at 0x1b40 by
+calling subroutine 0x1d9c, which stores the value. Read at only one point in
+the entire code base and used as input to arithmetic.
+
+  uint32_t _irq08_timestamp;  // -7fe0(r13)
+  void (*_irq08_callback)();  // -7fe4(r13) 0x10001c
+  uint8_t _irq08_count;       // -7fcb(r13)
+
+  void IRQ08Handler()
+  {
+    _irq08_timestamp = read_tbl();
+    if (_irq08_callback != 0)
+    {
+      _irq08_callback();
+    }
+    
+    _irq08_count += 1;
+    
+    // Ack IRQ and wait for clear
+    uint8_t pending;
+    do
+    {
+      write32_reversed(0xf1180010, 0x08);
+      pending = read8(0xf0100018) & 8;
+    } while (pending != 0);
+  }
+
+Value of _irq08_callback:
+
+  0x4e260 (appears to read inputs)
+
+IRQ08Handler:
+  0x00001B40: 0x3821FFF0	addi	r1,r1,-0x10
+  0x00001B44: 0x7C0802A6	mfspr	r0,lr
+  0x00001B48: 0x90010000	stw	r0,0x00(r1)
+  0x00001B4C: 0x48000251	bl	0x00001D9C
+  0x00001B50: 0x804D801C	lwz	r2,-0x7FE4(r13)
+  0x00001B54: 0x2C020000	cmpi	cr0,0,r2,0x00
+  0x00001B58: 0x7C4803A6	mtspr	lr,r2
+  0x00001B5C: 0x4C820021	bclrl	0x04,cr0[eq]
+  0x00001B60: 0x80010000	lwz	r0,0x00(r1)
+  0x00001B64: 0x7C0803A6	mtspr	lr,r0
+  0x00001B68: 0x38210010	addi	r1,r1,0x10
+  0x00001B6C: 0x886D8035	lbz	r3,-0x7FCB(r13)
+  0x00001B70: 0x38630001	addi	r3,r3,0x01
+  0x00001B74: 0x986D8035	stb	r3,-0x7FCB(r13)
+  0x00001B78: 0x38800008	li	r4,0x00000008
+  0x00001B7C: 0x3CA0F118	li	r5,0xF1180000
+  0x00001B80: 0x38A50010	addi	r5,r5,0x10
+  0x00001B84: 0x7C802D2C	stwbrx	r4,0,r5
+  0x00001B88: 0x3C60F010	li	r3,0xF0100000
+  0x00001B8C: 0x88630018	lbz	r3,0x18(r3)
+  0x00001B90: 0x70630008	andi.	r3,r3,0x0008
+  0x00001B94: 0x40A2FFF0	bf	cr0[eq],0x00001B84
+  0x00001B98: 0x4E800020	bclr	0x14,0
+
+
+Decrementer Exception
+---------------------
+  
+  -7fc9(r13)  0x100037  byte    Counts decrementer exceptions.
+  -7fe0(r13)  0x100020  word    IRQ 0x08 timestamp.
+  -7fd8(r13)  0x100028  word    Time elapsed since last IRQ 0x08. If IRQ 0x08
+                                timestamp is 0 (does not exist), 0 will be
+                                written.
+  -7fd0(r13)  0x100030  word    DEC reload value. Not accessed here; reloaded by VBL handler.
+
+DecrementerException:
+  0x00001A20: 0x3821FFC0	addi	r1,r1,-0x40
+  0x00001A24: 0xBC01FF80	stmw	r0,-0x80(r1)
+  0x00001A28: 0x3821FF80	addi	r1,r1,-0x80
+  0x00001A2C: 0x7FFA02A6	mfspr	r31,srr0
+  0x00001A30: 0x7FDB02A6	mfspr	r30,srr1
+  0x00001A34: 0x7FA00026	mfcr	r29
+  0x00001A38: 0x7F8802A6	mfspr	r28,lr
+  0x00001A3C: 0x7F6902A6	mfspr	r27,ctr
+  0x00001A40: 0xBF61FFEC	stmw	r27,-0x14(r1)
+  0x00001A44: 0x3821FFC0	addi	r1,r1,-0x40
+  0x00001A48: 0x7CA000A6	mfmsr	r5
+  0x00001A4C: 0x60A53032	ori	r5,r5,0x3032
+  0x00001A50: 0x7CA00124	mtmsr	r5
+  0x00001A54: 0x4C00012C	isync	
+  0x00001A58: 0x88AD8037	lbz	r5,-0x7FC9(r13)
+  0x00001A5C: 0x38A50001	addi	r5,r5,0x01
+  0x00001A60: 0x98AD8037	stb	r5,-0x7FC9(r13)
+  0x00001A64: 0x480002E9	bl	0x00001D4C
+  0x00001A68: 0x38210040	addi	r1,r1,0x40
+  0x00001A6C: 0xBB61FFEC	lmw	r27,-0x14(r1)
+  0x00001A70: 0x7F6903A6	mtspr	ctr,r27
+  0x00001A74: 0x7F8803A6	mtspr	lr,r28
+  0x00001A78: 0x7FAFF120	mtcrf	0xFF,r29
+  0x00001A7C: 0x7FDB03A6	mtspr	srr1,r30
+  0x00001A80: 0x7FFA03A6	mtspr	srr0,r31
+  0x00001A84: 0x7C210B78	mr	r1,r1
+  0x00001A88: 0xB8410008	lmw	r2,0x08(r1)
+  0x00001A8C: 0x80010000	lwz	r0,0x00(r1)
+  0x00001A90: 0x80210004	lwz	r1,0x04(r1)
+  0x00001A94: 0x38210040	addi	r1,r1,0x40
+  0x00001A98: 0x4C000064	rfi	
+
+  0x00001D4C: 0x7C6C42E6	mftb	r3,tbl
+  0x00001D50: 0x808D8020	lwz	r4,-0x7FE0(r13)
+  0x00001D54: 0x38A00000	li	r5,0x00000000
+  0x00001D58: 0x2C040000	cmpi	cr0,0,r4,0x00
+  0x00001D5C: 0x41820008	bt	cr0[eq],0x00001D64
+  0x00001D60: 0x7CA41850	sub	r5,r3,r4
+  0x00001D64: 0x90AD8028	stw	r5,-0x7FD8(r13)
+  0x00001D68: 0x38800000	li	r4,0x00000000
+  0x00001D6C: 0x908D8020	stw	r4,-0x7FE0(r13)
+  0x00001D70: 0x4E800020	bclr	0x14,0
+  
+    r3 = now()
+    r4 = w_7fe0
+    r5 = 0
+    
+    if (r4 != 0)
+    {
+      r5 = r3 - r4
+    }
+    
+    w_7fd8 = r5
+    w_7fe0 = 0
+  
+
+  
+IRQ 0x02 (VBL) Handler
+----------------------
+
+  -7fcc(r13)  0x10002c  byte    IRQ 0x02 count.
+  -7fd0(r13)  0x100030  word    DEC reload value.
+  -7fdc(r13)  0x100024  word    IRQ 0x04 timestamp.
+  -7fd4(r13)  0x10002c  word    Time elapsed since last IRQ 0x04. If timestamp
+                                does not exist (i.e., IRQ hasn't happened since
+                                this time delta was last computed), this will
+                                be 0.
+
+IRQ02Handler:
+  0x00001AD4: 0x806D8030	lwz	r3,-0x7FD0(r13)
+  0x00001AD8: 0x7C7603A6	mtspr	dec,r3        ; reload DEC
+  0x00001ADC: 0x3821FFF0	addi	r1,r1,-0x10
+  0x00001AE0: 0x7C0802A6	mfspr	r0,lr
+  0x00001AE4: 0x90010000	stw	r0,0x00(r1)
+  0x00001AE8: 0x4800028D	bl	0x00001D74
+  0x00001AEC: 0x48000365	bl	0x00001E50
+  0x00001AF0: 0x48000161	bl	0x00001C50
+  0x00001AF4: 0x804D8014	lwz	r2,-0x7FEC(r13)
+  0x00001AF8: 0x2C020000	cmpi	cr0,0,r2,0x00
+  0x00001AFC: 0x7C4803A6	mtspr	lr,r2
+  0x00001B00: 0x4C820021	bclrl	0x04,cr0[eq]
+  0x00001B04: 0x80010000	lwz	r0,0x00(r1)
+  0x00001B08: 0x7C0803A6	mtspr	lr,r0
+  0x00001B0C: 0x38210010	addi	r1,r1,0x10
+  0x00001B10: 0x886D8034	lbz	r3,-0x7FCC(r13)
+  0x00001B14: 0x38630001	addi	r3,r3,0x01
+  0x00001B18: 0x986D8034	stb	r3,-0x7FCC(r13)
+  0x00001B1C: 0x38800002	li	r4,0x00000002
+  0x00001B20: 0x3CA0F118	li	r5,0xF1180000
+  0x00001B24: 0x38A50010	addi	r5,r5,0x10
+  0x00001B28: 0x7C802D2C	stwbrx	r4,0,r5
+  0x00001B2C: 0x3C60F010	li	r3,0xF0100000
+  0x00001B30: 0x88630018	lbz	r3,0x18(r3)
+  0x00001B34: 0x70630002	andi.	r3,r3,0x0002
+  0x00001B38: 0x40A2FFF0	bf	cr0[eq],0x00001B28
+  0x00001B3C: 0x4E800020	bclr	0x14,0
+
+  0x00001D74: 0x7C6C42E6	mftb	r3,tbl
+  0x00001D78: 0x808D8024	lwz	r4,-0x7FDC(r13)
+  0x00001D7C: 0x38A00000	li	r5,0x00000000
+  0x00001D80: 0x2C040000	cmpi	cr0,0,r4,0x00
+  0x00001D84: 0x41820008	bt	cr0[eq],0x00001D8C
+  0x00001D88: 0x7CA41850	sub	r5,r3,r4
+  0x00001D8C: 0x90AD802C	stw	r5,-0x7FD4(r13)
+  0x00001D90: 0x38800000	li	r4,0x00000000
+  0x00001D94: 0x908D8024	stw	r4,-0x7FDC(r13)
+  0x00001D98: 0x4E800020	bclr	0x14,0
+
+    r3 = now()
+    r4 = w_7fdc
+    r5 = 0
+    if (r4 != 0)
+    {
+      r5 = r3 - r4
+    }
+    w_7fd4 = r5
+    w_7fdc = 0
+    
+
+
+
+External Interrupt Exception
+----------------------------
+
+ExternalInterrupt:
+  0x00001960: 0x3821FFC0	addi	r1,r1,-0x40
+  0x00001964: 0xBC01FF80	stmw	r0,-0x80(r1)
+  0x00001968: 0x3821FF80	addi	r1,r1,-0x80
+  0x0000196C: 0x7FFA02A6	mfspr	r31,srr0
+  0x00001970: 0x7FDB02A6	mfspr	r30,srr1
+  0x00001974: 0x7FA00026	mfcr	r29
+  0x00001978: 0x7F8802A6	mfspr	r28,lr
+  0x0000197C: 0x7F6902A6	mfspr	r27,ctr
+  0x00001980: 0xBF61FFEC	stmw	r27,-0x14(r1)
+  0x00001984: 0x3821FFC0	addi	r1,r1,-0x40
+  0x00001988: 0x7CA000A6	mfmsr	r5
+  0x0000198C: 0x60A53032	ori	r5,r5,0x3032
+  0x00001990: 0x7CA00124	mtmsr	r5
+  0x00001994: 0x4C00012C	isync	
+  0x00001998: 0x480602FD	bl	0x00061C94
+  0x0000199C: 0x3C60F010	li	r3,0xF0100000
+  0x000019A0: 0x88630018	lbz	r3,0x18(r3)
+  0x000019A4: 0x888D8008	lbz	r4,-0x7FF8(r13)
+  0x000019A8: 0x7C632038	and	r3,r3,r4
+  0x000019AC: 0x5465063E	and	r5,r3,0x000000FF
+  0x000019B0: 0x7CA03120	mtcrf	0x03,r5
+  0x000019B4: 0x40B60014	bf	cr5[eq],0x000019C8
+  0x000019B8: 0x886D93B1	lbz	r3,-0x6C4F(r13)
+  0x000019BC: 0x5460C801	rlwinm.	r0,r3,25,0x80000000
+  0x000019C0: 0x41820008	bt	cr0[eq],0x000019C8
+  0x000019C4: 0x48060345	bl	0x00061D08
+  0x000019C8: 0x41BF00E9	btl	cr7[so],0x00001AB0  ; IRQ 0x01
+  0x000019CC: 0x41BE0109	btl	cr7[eq],0x00001AD4  ; IRQ 0x02  <-- VBL? (assumed)
+  0x000019D0: 0x41BD01CD	btl	cr7[gt],0x00001B9C  ; IRQ 0x04  <--- ???
+  0x000019D4: 0x41BC016D	btl	cr7[lt],0x00001B40  ; IRQ 0x08  <--- ???
+  0x000019D8: 0x41BA0265	btl	cr6[eq],0x00001C3C  ; IRQ 0x20
+  0x000019DC: 0x41BB00C1	btl	cr6[so],0x00001A9C  ; IRQ 0x10
+  0x000019E0: 0x41B80249	btl	cr6[lt],0x00001C28  ; IRQ 0x80
+  0x000019E4: 0x41B90215	btl	cr6[gt],0x00001BF8  ; IRQ 0x40
+  0x000019E8: 0x38600005	li	r3,0x00000005
+  0x000019EC: 0x38210040	addi	r1,r1,0x40
+  0x000019F0: 0xBB61FFEC	lmw	r27,-0x14(r1)
+  0x000019F4: 0x7F6903A6	mtspr	ctr,r27
+  0x000019F8: 0x7F8803A6	mtspr	lr,r28
+  0x000019FC: 0x7FAFF120	mtcrf	0xFF,r29
+  0x00001A00: 0x7FDB03A6	mtspr	srr1,r30
+  0x00001A04: 0x7FFA03A6	mtspr	srr0,r31
+  0x00001A08: 0x7C210B78	mr	r1,r1
+  0x00001A0C: 0xB8410008	lmw	r2,0x08(r1)
+  0x00001A10: 0x80010000	lwz	r0,0x00(r1)
+  0x00001A14: 0x80210004	lwz	r1,0x04(r1)
+  0x00001A18: 0x38210040	addi	r1,r1,0x40
+  0x00001A1C: 0x4C000064	rfi	

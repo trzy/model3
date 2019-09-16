@@ -1,0 +1,49 @@
+#
+# patch_script.txt:
+#
+# Patches Virtua Fighter 3 CROM memory. Input to patchtool.
+#
+# Input files:
+#
+#   obj/vf3_crom.bin          Unpatched, merged VF3 CROM.
+#   obj/vf3_patch.bin         Code blob to insert.
+#
+# Output file:
+#
+#   obj/vf3_crom_patched.bin  Patched, merged VF3 CROM.
+#
+# The expected CROM CRCs are:
+#
+#   IC20  736A9431
+#   IC19  731B6B78
+#   IC18  9C5727E2
+#   IC17  A7DF4D75
+#
+# Offset 0x110000 is the offset of program RAM in CROM.
+#
+# Virtua Fighter 3's memory layout is peculiar:
+#
+# DBAT0: 00000000-0007FFFF -> 00000000-0007FFFF --MG PP=RO Vs=1 Vp=1
+# DBAT1: 00100000-001FFFFF -> 00100000-001FFFFF --MG PP=RW Vs=1 Vp=1
+# DBAT2: FF800000-FFFFFFFF -> FF800000-FFFFFFFF --MG PP=RO Vs=1 Vp=1
+# DBAT3: F0000000-F1FFFFFF -> F0000000-F1FFFFFF -IMG PP=RW Vs=1 Vp=1
+# IBAT0: 00000000-0007FFFF -> 00000000-0007FFFF --M- PP=RO Vs=1 Vp=1
+# IBAT1: FF000000-FFFFFFFF -> FF000000-FFFFFFFF --M- PP=RO Vs=1 Vp=1
+# IBAT2: 00000000-0001FFFF -> 00000000-0001FFFF ---- PP=NA Vs=0 Vp=0
+# IBAT3: 00000000-0001FFFF -> 00000000-0001FFFF ---- PP=NA Vs=0 Vp=0
+#
+# Note the hole in memory from 0x00080000-0x00100000. Originally, the idea was
+# to place the patched code at 0x90000 but this causes an exception on the 
+# actual hardware (resulting in blinking board LEDs that flash the exception
+# code). The DBAT and IBAT registers could probably be modified with a patch...
+#
+# Locating the patch at 0x60000, which I believe does overwrite existing code,
+# seems to work well enough through attract mode.
+#
+
+load obj/vf3_crom.bin
+insert 170000 obj/vf3_patch.bin   # 0x110000 (RAM program offset in CROM) + 0x60000 (injected code offset in RAM) = 0x170000
+write32 111578 4806000b           # 0x1578: bl 0x60008 (call reset code, called only once at boot up)
+write32 113dcc 48060003           # 0x3dcc: bl 0x60000 (call patched code, print routine, called once per frame)
+write32 1119a8 48060007           # 0x19a8: bl 0x60004 (call patched code, capture timestamp routine)
+save obj/vf3_crom_patched.bin

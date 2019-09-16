@@ -24,8 +24,9 @@ int main(int argc, char **argv)
 {
   if (argc <= 1 || (argc > 2 && argc != 6))
   {
-    printf("Usage: splitrom <file> [ic20 ic19 ic18 ic17]\n\n");
-    printf("Splits flat binary <file> into 4 files: ic20.bin, ic19.bin, ic18.bin, ic17.bin.\n");
+    printf("Usage: splitrom <crom> [ic20 ic19 ic18 ic17]\n\n");
+    printf("Splits flat binary file <crom> into 4 byte-swapped files: ic20.bin, ic19.bin,\n");
+    printf("  ic18.bin, ic17.bin.\n");
     printf("Output file names may optionally be overriden.\n");
     return 0;
   }

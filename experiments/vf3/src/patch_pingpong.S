@@ -318,6 +318,7 @@ measure_frame:
   stw   %r15,36(%r1)
   stw   %r16,40(%r1)
   stw   %r17,44(%r1)
+  stw   %r31,48(%r1)
   
   // Wait several frames
   bl    wait_for_vbl
@@ -347,6 +348,7 @@ measure_frame:
   li    %r12,0
   
   // Wait until bit flips or frame ends
+  li    %r31,5                        // frame count = 5 (wait up to 5 frames)
 .frame1_loop:
   bl    read_pingpong_and_status_r3_r5
   cmp   0,%r3,%r2
@@ -357,7 +359,10 @@ measure_frame:
   b     .frame1_loop
     
 .frame_ended_without_flip1:
-  b     .finish_frame1
+  addic.  %r31,%r31,-1              // frame count -= 1
+  beq   .finish_frame1              // we've waited enough frames
+  lbz   %r4,OFFSET_IRQ02_COUNT(%r13)  // try again
+  b     .frame1_loop
   
 .pingpong_flipped1:
   mftbl %r11                        // record ping pong flip time
@@ -429,12 +434,14 @@ measure_frame:
   li    %r16,0
   
   // Do flush
+  //bl    write_mystery_tilegen_register
   bl    real3d_flush
   bl    short_delay
   bl    read_pingpong_and_status_r3_r5
   mr    %r17,%r5                      // r17 = Real3D status after flush
 
   // Wait until bit flips or frame ends
+  li    %r31,5                        // frame count = 5 (wait up to 5 frames)
 .frame2_loop:
   bl    read_pingpong_and_status_r3_r5
   cmp   0,%r3,%r2
@@ -446,7 +453,10 @@ measure_frame:
   b     .frame2_loop
     
 .frame_ended_without_flip2:
-  b     .finish_frame2
+  addic.  %r31,%r31,-1              // frame count -= 1
+  beq   .finish_frame2              // we've waited enough frames
+  lbz   %r4,OFFSET_IRQ02_COUNT(%r13)  // try again
+  b     .frame2_loop
   
 .pingpong_flipped2:
   mftbl %r11                        // record ping pong flip time
@@ -519,6 +529,7 @@ measure_frame:
   li    %r3,1
   stb   %r3,0(%r4)  
 
+  lwz   %r31,48(%r1)
   lwz   %r17,44(%r1)
   lwz   %r16,40(%r1)
   lwz   %r15,36(%r1)
@@ -533,6 +544,31 @@ measure_frame:
   lwz   %r0,0(%r1)
   addi  %r1,%r1,64
   mtlr  %r0
+  blr
+
+//
+// Write to tilgen register 0x0c, which games seem to do immediately after
+// detecting an IRQ02 event (but never in the IRQ handler, indicating this may
+// be some sort of frame trigger).
+//
+// Clobbers:
+//  r0
+//  
+write_mystery_tilegen_register:
+  addi  %r1,%r1,-16
+  mflr  %r0
+  stw   %r0,0(%r1)
+  stw   %r2,4(%r1)
+  
+  lis   %r2,0xf118000c@h
+  ori   %r2,%r2,0xf118000c@l
+  li    %r0,3
+  stwbrx  %r0,0,%r2
+  
+  lwz   %r2,4(%r1)
+  lwz   %r0,0(%r1)
+  mtlr  %r0
+  addi  %r1,%r1,16
   blr
 
 //
@@ -617,7 +653,8 @@ read_pingpong_and_status_r3_r5:
   blr
   
 //
-// Waits for VBL by spinning on IRQ02 count.
+// Waits for VBL by spinning on IRQ02 count. After IRQ02, writes 0xF118000C=3,
+// which other games have been observed to do.
 //
 // Clobbers:
 //  r0, cr0
@@ -633,6 +670,11 @@ wait_for_vbl:
   lbz   %r0,OFFSET_IRQ02_COUNT(%r13)
   cmp   0,%r0,%r2
   beq   .vbl_loop
+  
+  lis   %r2,0xf118000c@h
+  ori   %r2,%r2,0xf118000c@l
+  li    %r0,3
+  stwbrx  %r0,0,%r2
   
   lwz   %r2,4(%r1)
   lwz   %r0,0(%r1)

@@ -169,6 +169,15 @@ print_results:
   bl    print_hex
   
   // Print results -- frame 2
+  //
+  //  time_frame_begin
+  //  time_pingpong_flipped   time_irq04    status_at_irq04
+  //  time_frame_end          time_irq08    status_at_irq08
+  //  
+  //                          status_at_frame_begin
+  //                          status_after_flush
+  //                          status_before_flip
+  //                          status_after_flip
   
   li    %r3,NAMETABLE_OFFSET(28,8)
   lis   %r4,ADDRESS_FRAME_BEGIN_TIMESTAMP_2@h
@@ -573,36 +582,26 @@ write_mystery_tilegen_register:
 
 //
 // Perform a Real3D flush (or what we believe to be a flush :)).
-// Also writes to 8E000000 and 98000000 based on values observed
-// to be present at the time this routine executes.
 //
 // Clobbers:
 //  r0
 //
 real3d_flush:
-  addi  %r1,%r1,-16
+  addi  %r1,%r1,-(4*32)
   mflr  %r0
   stw   %r0,0(%r1)
-  stw   %r4,4(%r1)
+  stmw  %r2,4(%r1)
   
-  lis   %r0,0
-  lis   %r4,0x8e000000@h
-  ori   %r4,%r4,0x8e000000@l
-  stw   %r0,0(%r4)
-  lis   %r4,0x98000000@h
-  ori   %r4,%r4,0x98000000@l
-  stw   %r0,0(%r4)
+  // Call into VF3's routine for writing 0x88000000 = 0xdeaddead using SCSI DMA
+  li    %r3,2
+  addi  %r1,%r1,-256
+  bla   0x63bf8
+  addi  %r1,%r1,256
   
-  lis   %r0,0xdeaddead@h
-  ori   %r0,%r0,0xdeaddead@l
-  lis   %r4,ADDRESS_REAL3D_FLUSH@h
-  ori   %r4,%r4,ADDRESS_REAL3D_FLUSH@l
-  stw   %r0,0(%r4)
-  
-  lwz   %r4,4(%r1)
+  lmw   %r2,4(%r1)
   lwz   %r0,0(%r1)
   mtlr  %r0
-  addi  %r1,%r1,16
+  addi  %r1,%r1,(4*32)
   blr
 
 //

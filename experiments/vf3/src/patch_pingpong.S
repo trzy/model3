@@ -5,8 +5,8 @@
 // Performs two sets of measurements:
 //
 // 1. Does not write to 0x88000000.
-// 2. Writes 0x88000000 = 0xdeaddead, as many games do. Also writes one word
-//    each to 0x8e000000 and 0x98000000 in case the Real3D monitors this.
+// 2. Writes 0x88000000 = 0xdeaddead, as many games do, using SCSI DMA. 
+//    Apparently using DMA is important.
 //
 // Various values are recorded for each frame, namely when the pingpong bit
 // flip occurred (if it happened at all), timestamps for IRQ04 and IRQ08 during

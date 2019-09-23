@@ -18,7 +18,6 @@ Note the ping pong bit (0x02000000 in the status register) goes from
   
 Results:
 
-
 [1]   058a112f  4208c112  4007ffff
                 5208c112  0007ffff
     
@@ -36,4 +35,21 @@ Results:
     
 [6]   0595b32b  5208c112  4007ffff
                 4008c112  4007ffff
-                
+
+
+Analysis:
+
+  def ms(cycles):
+    return (cycles/(66e6/4))/(1e-3)
+
+  [2]-[1] = ms(0x058cf240-0x058a112f) = 11.435696969696968 ms
+  [4]-[3] = ms(0x059152af-0x0590752c) = 3.4367878787878787 ms
+  [6]-[5] = ms(0x0595b32b-0x05915790) = 17.30878787878788 ms
+  
+  The ping pong flip happens 11.4ms after VBL. In the second measurement, we
+  wait for VBL, then 8ms, then issue the flush command. The flip occurs only 
+  3.4 ms later (and 8+3.4 = 11.4ms). Lastly, we issue a flush immediately after
+  the second flip. In this case, the flip occurs at the same point in the 
+  *next* frame, exactly 17.3ms later.
+  
+  Note that each frame is 17.3853ms (57.5 Hz refresh rate).

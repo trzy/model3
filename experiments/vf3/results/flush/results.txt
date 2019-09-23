@@ -1,0 +1,39 @@
+Each event is recorded as:    
+
+      timestamp status_reg_just_before  lscycle_reg_just_before
+                status_reg_just_after   lscycle_reg_just_after
+
+The events are:
+
+  [1] Flush #1 (right after VBL)
+  [2] Ping pong bit flipped
+  [3] Flush #2 (right after next VBL plus 8ms delay)
+  [4] Ping pong bit flipped
+  [5] Flush #3 (right after ping pong flipped in [4])
+  [6] Ping pong bit flipped
+  
+Note the ping pong bit (0x02000000 in the status register) goes from
+1 -> 0 -> 1 -> 0.
+  
+  
+Results:
+
+
+[1]   058a112f  4208c112  4007ffff
+                5208c112  0007ffff
+    
+[2]   058cf240  5208c112  4007ffff
+                4008c112  4007ffff
+    
+[3]   0590752c  4008c112  4007ffff
+                5008c112  c007ffff
+     
+[4]   059152af  5008c112  4007ffff
+                4208c112  4007ffff
+                
+[5]   05915790  4208c112  4007ffff
+                5208c112  c007ffff
+    
+[6]   0595b32b  5208c112  4007ffff
+                4008c112  4007ffff
+                

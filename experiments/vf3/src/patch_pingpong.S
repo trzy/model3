@@ -443,7 +443,6 @@ measure_frame:
   li    %r16,0
   
   // Do flush
-  //bl    write_mystery_tilegen_register
   bl    real3d_flush
   bl    short_delay
   bl    read_pingpong_and_status_r3_r5

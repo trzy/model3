@@ -79,6 +79,7 @@ all: $(OBJDIR)
 	$(call BuildPatch,patch_timeline)
 	$(call BuildPatch,patch_pingpong)
 	$(call BuildPatch,patch_flush)
+	$(call BuildPatch,patch_flush_tilegen)
 
 $(OBJDIR):
 	mkdir $(OBJDIR)

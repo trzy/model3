@@ -2,7 +2,7 @@
 
 OUTPUT_ROM = crom.bin
 OUTPUT_ELF = crom.elf
-SRCS = src/test/test.c
+SRCS = model3app/src/test/test.c
 LIBS = libmodel3
 
 OBJDIR = obj
@@ -13,10 +13,10 @@ CC = /c/mingw64-ppc/bin/powerpc-603e-eabi-gcc
 LD = /c/mingw64-ppc/bin/powerpc-603e-eabi-gcc
 AR = /c/mingw64-ppc/bin/powerpc-603e-eabi-ar
 OBJCOPY = /c/mingw64-ppc/bin/powerpc-603e-eabi-objcopy
-LDSCRIPT = src/libmodel3/ldscripts/model3.ld
+LDSCRIPT = model3app/src/libmodel3/ldscripts/model3.ld
 
 DEPFLAGS = -MT $@	-MMD -MP -MF $(OBJDIR)/$*.d
-CPPFLAGS = $(DEPFLAGS) -Isrc/include -I$(dir $<)
+CPPFLAGS = $(DEPFLAGS) -Imodel3app/src/include -I$(dir $<)
 CFLAGS = -std=gnu99 -Os
 ARFLAGS = rcs
 LIBFLAGS = $(subst lib, -l, $(LIBS))
@@ -33,7 +33,7 @@ all: $(OBJDIR) $(BINDIR) $(LIBS) $(OBJS)
 	@$(OBJCOPY) $(BINDIR)/$(OUTPUT_ELF) $(BINDIR)/$(OUTPUT_ROM) -O binary --pad-to=0x100000000
 
 # Rules to build Model 3 BSP
-include src/libmodel3/Makefile.inc
+include model3app/src/libmodel3/Makefile.inc
 
 define COMPILE_C
 	$(info Compiling $<)
@@ -45,7 +45,7 @@ define COMPILE_ASM  # note: no dependency tracking for asm files (yet)
 	@$(CC) -c $(CPPFLAGS) $< -o $@
 endef
 
-$(OBJDIR)/%.o: src/test/%.c $(OBJDIR)/%.d
+$(OBJDIR)/%.o: model3app/src/test/%.c $(OBJDIR)/%.d
 	$(COMPILE_C)
 
 $(OBJDIR):

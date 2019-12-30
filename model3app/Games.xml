@@ -1,0 +1,27 @@
+<!--
+  Games.xml file to use with model3app's crom.bin.
+-->
+<games>
+  <game name="test">
+    <identity>
+      <title>Model 3 Test Program</title>
+      <manufacturer>Bart Trzynadlowski</manufacturer>
+      <year>2019</year>
+    </identity>
+    <hardware>
+      <platform>Sega Model 3</platform>
+      <stepping>1.0</stepping>
+      <inputs>
+        <input type="common" />
+        <input type="joystick1" />
+        <input type="joystick2" />
+        <input type="fighting" />
+      </inputs>
+    </hardware>
+    <roms>
+      <region name="crom" stride="1" chunk_size="1" byte_swap="false">
+        <file offset="0" name="crom.bin" />
+      </region>
+    </roms>
+  </game>
+</games>

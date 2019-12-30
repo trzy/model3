@@ -1,17 +1,17 @@
 LIBMODEL3_LIB = $(LIBDIR)/libmodel3.a
-LIBMODEL3_SRCS =                  \
-	src/libmodel3/crom.S            \
-	src/libmodel3/startup.S         \
-	src/libmodel3/ppc.c             \
-	src/libmodel3/timer.c           \
-	src/libmodel3/jtag.c            \
-  src/libmodel3/rtc.c             \
-	src/libmodel3/irq.c             \
-	src/libmodel3/dma.c             \
-	src/libmodel3/led.c             \
-	src/libmodel3/tilegen.c         \
-	src/libmodel3/real3d.c          \
-	src/libmodel3/newlib_stubs.c
+LIBMODEL3_SRCS =                            \
+	model3app/src/libmodel3/crom.S            \
+	model3app/src/libmodel3/startup.S         \
+	model3app/src/libmodel3/ppc.c             \
+	model3app/src/libmodel3/timer.c           \
+	model3app/src/libmodel3/jtag.c            \
+  model3app/src/libmodel3/rtc.c             \
+	model3app/src/libmodel3/irq.c             \
+	model3app/src/libmodel3/dma.c             \
+	model3app/src/libmodel3/led.c             \
+	model3app/src/libmodel3/tilegen.c         \
+	model3app/src/libmodel3/real3d.c          \
+	model3app/src/libmodel3/newlib_stubs.c
 
 DEPENDENCIES += $(LIBMODEL3_SRCS)
 
@@ -20,8 +20,8 @@ libmodel3: $(LIBDIR) $(LIBMODEL3_OBJS)
 	$(info Creating Model 3 board support package)
 	@$(AR) $(ARFLAGS) $(LIBMODEL3_LIB) $(LIBMODEL3_OBJS)
 
-$(OBJDIR)/%.o: src/libmodel3/%.c $(OBJDIR)/%.d
+$(OBJDIR)/%.o: model3app/src/libmodel3/%.c $(OBJDIR)/%.d
 	$(COMPILE_C)
 	
-$(OBJDIR)/%.o: src/libmodel3/%.S
+$(OBJDIR)/%.o: model3app/src/libmodel3/%.S
 	$(COMPILE_ASM)

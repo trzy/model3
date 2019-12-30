@@ -37,7 +37,10 @@ static void trigger_real3d()
 {
   //static uint32_t data = 0x12345678;
   //scsi_blocking_dma_copy(0x88000000, &data, 1, true);
-  ppc_stwbrx(0x88000000, 0xdeaddead);
+  
+  //ppc_stwbrx(0x88000000, 0xdeaddead);
+  
+  real3d_flush();
 }
 
 static void print_bat(uint32_t batu, uint32_t batl)
@@ -143,6 +146,7 @@ static void wait_for_vbl()
   int old_count = s_irq_count[1]; // IRQ 0x02
   while (s_irq_count[1] == old_count)
     ;
+  ppc_stwbrx(0xf118000c, 3);      // required to trigger Real3D rendering after flush (exact purpose unknown)
 }
 
 static void test_refresh_rate(struct timer *test_timer)
@@ -213,7 +217,7 @@ static void test_refresh_rate(struct timer *test_timer)
             "/*.type incbin_" STR(name) "_start, @object*/\n" \
             ".balign 8\n" \
             "incbin_" STR(name) "_start:\n" \
-            ".incbin \"src/test/" file "\"\n" \
+            ".incbin \"model3app/src/test/" file "\"\n" \
             \
             ".global incbin_" STR(name) "_end\n" \
             "/*.type incbin_" STR(name) "_end, @object*/\n" \
@@ -257,19 +261,22 @@ static void test_real3d_status_bit(struct timer *test_timer)
   
   
   // Initialize memory
+  tilegen_printf("  Copying to Real3D: 8C ");
   dma_blocking_copy(0x8c100000, (uint32_t *) &incbin_8c100000_start, (uint32_t *) &incbin_8c100000_end - (uint32_t *) &incbin_8c100000_start, false);
-  real3d_flush();
-  wait_for_vbl();
-  wait_for_vbl();
+  //real3d_flush();
+  //wait_for_vbl();
+  //wait_for_vbl();
+  tilegen_printf("8E");
   for (int i = 0; i < 2; i++)
   {
     dma_blocking_copy(0x8e000000, (uint32_t *) &incbin_8e000000_start, (uint32_t *) &incbin_8e000000_end - (uint32_t *) &incbin_8e000000_start, false);
     dma_blocking_copy(0x8e000400, (uint32_t *) &incbin_8e000400_start, (uint32_t *) &incbin_8e000400_end - (uint32_t *) &incbin_8e000400_start, false);
     dma_blocking_copy(0x8e001400, (uint32_t *) &incbin_8e001400_start, (uint32_t *) &incbin_8e001400_end - (uint32_t *) &incbin_8e001400_start, false);
-    real3d_flush();
-    wait_for_vbl();
-    wait_for_vbl();
+    //real3d_flush();
+    //wait_for_vbl();
+    //wait_for_vbl();
   }
+  tilegen_printf("94");
   dma_blocking_copy(0x94000000, (uint32_t *) &incbin_94000000_start, (uint32_t *) &incbin_94000000_end - (uint32_t *) &incbin_94000000_start, false);
   real3d_flush();
   wait_for_vbl();
@@ -277,6 +284,7 @@ static void test_real3d_status_bit(struct timer *test_timer)
   wait_for_vbl();
   
   // Conduct frame timing test
+  tilegen_printf("\n\n");
   tilegen_printf("  Frame Timing Test\n");
   tilegen_printf("  -----------------\n\n");
   
@@ -352,7 +360,56 @@ static void test_real3d_status_bit(struct timer *test_timer)
   
   while (!poll_timer(test_timer))
   {
-    timer_wait_seconds(1);
+    timer_wait_seconds(0.1);
+  }
+}
+
+static void test_double_buffer(struct timer *test_timer)
+{
+  const uint32_t addr_8e = 0x8e000100;
+  const uint32_t addr_8c = 0x8c040000;
+  const uint32_t addr_98 = 0x98000500;
+  uint32_t value_8c[2] = { 0, 0 };
+  uint32_t value_8e[2] = { 0, 0 };
+  uint32_t value_98[2] = { 0, 0 };
+  
+  wait_for_vbl();
+  
+  // Copy initial value (0xbeefbabe) to RAM regions
+  tilegen_printf_at(2, 5, "Copying initial values to Real3D... ");
+  uint32_t value1 = 0xbeefbabe;
+  dma_blocking_copy(addr_8c, &value1, 1, false);
+  dma_blocking_copy(addr_8e, &value1, 1, false);
+  dma_blocking_copy(addr_98, &value1, 1, false);
+  tilegen_printf("OK\n");
+  
+  // Read back (sanity check)
+  tilegen_printf("  Reading back values...\n");
+  dma_blocking_copy((uint32_t) &value_8c[0], (uint32_t *) addr_8c, 1, false);
+  dma_blocking_copy((uint32_t) &value_8e[0], (uint32_t *) addr_8e, 1, false);
+  dma_blocking_copy((uint32_t) &value_98[0], (uint32_t *) addr_98, 1, false);
+  tilegen_printf("    %08x = %08x\n", addr_8c, value_8c[0]);
+  tilegen_printf("    %08x = %08x\n", addr_8e, value_8e[0]);
+  tilegen_printf("    %08x = %08x\n", addr_98, value_98[0]);
+  
+  // Flush
+  tilegen_printf("  Flushing... ");
+  real3d_flush();
+  wait_for_vbl();
+  tilegen_printf("OK\n");
+  
+  // Read back again to see if anything changed
+  tilegen_printf("  Reading back values...\n");
+  dma_blocking_copy((uint32_t) &value_8c[1], (uint32_t *) addr_8c, 1, false);
+  dma_blocking_copy((uint32_t) &value_8e[1], (uint32_t *) addr_8e, 1, false);
+  dma_blocking_copy((uint32_t) &value_98[1], (uint32_t *) addr_98, 1, false);
+  tilegen_printf("    %08x = %08x\n", addr_8c, value_8c[1]);
+  tilegen_printf("    %08x = %08x\n", addr_8e, value_8e[1]);
+  tilegen_printf("    %08x = %08x\n", addr_98, value_98[1]);
+
+  while (!poll_timer(test_timer))
+  {
+    timer_wait_seconds(0.1);
   }
 }
 
@@ -401,9 +458,10 @@ int main(void)
 
   struct test_function tests[] =
   {
-    //{ "test_refresh_rate",      test_refresh_rate,      10 },
-    //{ "test_scsi_dma",          test_scsi_dma,          10 },
+    { "test_refresh_rate",      test_refresh_rate,      10 },
+    { "test_scsi_dma",          test_scsi_dma,          10 },
     { "test_real3d_status_bit", test_real3d_status_bit, 10 },
+    { "test_double_buffer",     test_double_buffer,     10 },
     { 0, 0, 0 }
   };
   

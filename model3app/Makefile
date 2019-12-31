@@ -2,7 +2,7 @@
 
 OUTPUT_ROM = crom.bin
 OUTPUT_ELF = crom.elf
-SRCS = model3app/src/test/test.c
+SRCS = model3app/src/model3app/model3app.c
 LIBS = libmodel3
 
 OBJDIR = obj
@@ -45,7 +45,7 @@ define COMPILE_ASM  # note: no dependency tracking for asm files (yet)
 	@$(CC) -c $(CPPFLAGS) $< -o $@
 endef
 
-$(OBJDIR)/%.o: model3app/src/test/%.c $(OBJDIR)/%.d
+$(OBJDIR)/%.o: model3app/src/model3app/%.c $(OBJDIR)/%.d
 	$(COMPILE_C)
 
 $(OBJDIR):

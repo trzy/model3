@@ -215,7 +215,7 @@ static void test_refresh_rate(struct timer *test_timer)
             "/*.type incbin_" STR(name) "_start, @object*/\n" \
             ".balign 8\n" \
             "incbin_" STR(name) "_start:\n" \
-            ".incbin \"model3app/src/test/" file "\"\n" \
+            ".incbin \"model3app/src/model3app/" file "\"\n" \
             \
             ".global incbin_" STR(name) "_end\n" \
             "/*.type incbin_" STR(name) "_end, @object*/\n" \

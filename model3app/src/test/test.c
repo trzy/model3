@@ -266,7 +266,7 @@ static void test_real3d_status_bit(struct timer *test_timer)
   //real3d_flush();
   //wait_for_vbl();
   //wait_for_vbl();
-  tilegen_printf("8E");
+  tilegen_printf("8E ");
   for (int i = 0; i < 2; i++)
   {
     dma_blocking_copy(0x8e000000, (uint32_t *) &incbin_8e000000_start, (uint32_t *) &incbin_8e000000_end - (uint32_t *) &incbin_8e000000_start, false);

@@ -1,8 +1,5 @@
 /*
- * Simple test program. Displays values of some processor-specific registers
- * and MMU registers to verify that the startup code set them up correctly.
- * Enables IRQ 0x02 (which appears to be vblank) and attempts to measure the
- * refresh rate and CPU clock speed.
+ * Runs a series of test. IRQ 02 is enabled.
  */
 
 #include "model3/jtag.h"
@@ -437,7 +434,7 @@ int main(void)
   struct test_function tests[] =
   {
     { "test_refresh_rate",      test_refresh_rate,      10 },
-    { "test_scsi_dma",          test_scsi_dma,          10 },
+    { "test_scsi_dma",          test_scsi_dma,          10 }, // NOTE: dma_init() called here. May want to move that to start of main().
     { "test_real3d_status_bit", test_real3d_status_bit, 10 },
     { "test_double_buffer",     test_double_buffer,     10 },
     { 0, 0, 0 }

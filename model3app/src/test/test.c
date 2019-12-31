@@ -13,11 +13,14 @@
 #include "model3/led.h"
 #include "model3/dma.h"
 #include "model3/timer.h"
+#include "model3/utils.h"
 #include "model3/real3d.h"
 #include <string.h>
 
 static uint32_t s_real3d_stat_packet[9];
+static uint32_t s_real3d_stat_packet_dma[9];
 
+// CPU reads should be possible but don't work here for some reason (paging is probably misconfigured in startup.S)
 static uint32_t read_real3d_reg(uint32_t reg_num)
 {
   uint32_t addr = 0x84000000 + (reg_num & 0xf) * 4;
@@ -33,14 +36,12 @@ static uint32_t read_real3d_status()
   return s_real3d_stat_packet[0];
 }
 
-static void trigger_real3d()
+// DMA-based reads *do* work because they avoid using the CPU
+static uint32_t read_real3d_status_dma()
 {
-  //static uint32_t data = 0x12345678;
-  //scsi_blocking_dma_copy(0x88000000, &data, 1, true);
-  
-  //ppc_stwbrx(0x88000000, 0xdeaddead);
-  
-  real3d_flush();
+  dma_blocking_copy((uint32_t) s_real3d_stat_packet_dma, (uint32_t *) 0x84000000, 9, false);
+  byte_reverse_words(s_real3d_stat_packet_dma, 9);
+  return s_real3d_stat_packet_dma[0];
 }
 
 static void print_bat(uint32_t batu, uint32_t batl)
@@ -251,11 +252,12 @@ static void test_real3d_status_bit(struct timer *test_timer)
   
   // Print an example of a stat packet
   read_real3d_status();
+  read_real3d_status_dma();
   tilegen_printf("  Stat Packet\n");
   tilegen_printf("  -----------\n");
   for (int i = 0; i < 9; i++)
   {
-    tilegen_printf("  %d=%08x\n", i, s_real3d_stat_packet[i]);
+    tilegen_printf("  %d=%08x (CPU)  %08x (DMA)\n", i, s_real3d_stat_packet[i], s_real3d_stat_packet_dma[i]);
   }
   tilegen_printf("\n");
   
@@ -263,18 +265,12 @@ static void test_real3d_status_bit(struct timer *test_timer)
   // Initialize memory
   tilegen_printf("  Copying to Real3D: 8C ");
   dma_blocking_copy(0x8c100000, (uint32_t *) &incbin_8c100000_start, (uint32_t *) &incbin_8c100000_end - (uint32_t *) &incbin_8c100000_start, false);
-  //real3d_flush();
-  //wait_for_vbl();
-  //wait_for_vbl();
   tilegen_printf("8E ");
   for (int i = 0; i < 2; i++)
   {
     dma_blocking_copy(0x8e000000, (uint32_t *) &incbin_8e000000_start, (uint32_t *) &incbin_8e000000_end - (uint32_t *) &incbin_8e000000_start, false);
     dma_blocking_copy(0x8e000400, (uint32_t *) &incbin_8e000400_start, (uint32_t *) &incbin_8e000400_end - (uint32_t *) &incbin_8e000400_start, false);
     dma_blocking_copy(0x8e001400, (uint32_t *) &incbin_8e001400_start, (uint32_t *) &incbin_8e001400_end - (uint32_t *) &incbin_8e001400_start, false);
-    //real3d_flush();
-    //wait_for_vbl();
-    //wait_for_vbl();
   }
   tilegen_printf("94");
   dma_blocking_copy(0x94000000, (uint32_t *) &incbin_94000000_start, (uint32_t *) &incbin_94000000_end - (uint32_t *) &incbin_94000000_start, false);
@@ -284,78 +280,60 @@ static void test_real3d_status_bit(struct timer *test_timer)
   wait_for_vbl();
   
   // Conduct frame timing test
-  tilegen_printf("\n\n");
-  tilegen_printf("  Frame Timing Test\n");
-  tilegen_printf("  -----------------\n\n");
-  
   struct timer timeout;
   timer_start(&timeout, 1);
   
-  //while (!poll_timer(test_timer))
+  tilegen_printf("\n\n");
+  tilegen_printf("  Frame Timing Test\n");
+  tilegen_printf("  -----------------\n\n");
+
+  timer_wait_seconds(0.5);
+  tilegen_printf("  Beginning test. Hold on to your butts!\n\n");
+  
+  // Measure the duration of one whole frame
+  tilegen_printf("\n  Beginning frame measurement.\n\n");
+  wait_for_vbl();
+  uint32_t start_of_frame = ppc_get_tbl();
+  wait_for_vbl();
+  uint32_t end_of_frame = ppc_get_tbl();
+  uint32_t frame_duration = end_of_frame - start_of_frame;
+
+  // Issue a flush command
+  real3d_flush();
+
+  // Wait for status bit to flip
+  uint32_t old_status_bit = read_real3d_status_dma() & 0x02000000;
+  uint32_t status_bit;
+  do
   {
-    timer_wait_seconds(0.5);
-    tilegen_printf("  Beginning test. Hold on to your butts!\n\n");
-    
-    // Try writing something to culling RAM
-    /*
-    for (int i = 0; i < 2; i++)
-    {
-      tilegen_printf("  Writing culling RAM #%d...\n", i + 1);
-      ppc_stwbrx(0x8c000000, 0);
-      ppc_stwbrx(0x8e000000, 0);
-      tilegen_printf("  Flushing...\n");
-      trigger_real3d();
-      tilegen_printf("  Waiting one frame...\n");
-      wait_for_vbl();
-    }
-    */
-    
-    tilegen_printf("\n  Beginning frame measurement.\n\n");
-    
-    // Measure the duration of one whole frame
-    wait_for_vbl();
-    uint32_t start_of_frame = ppc_get_tbl();
-    wait_for_vbl();
-    uint32_t end_of_frame = ppc_get_tbl();
-    uint32_t frame_duration = end_of_frame - start_of_frame;
+    status_bit = read_real3d_status_dma() & 0x02000000;
+  } while (status_bit == old_status_bit && !timer_expired(&timeout));
 
-    // Issue a flush command
-    trigger_real3d();
+  // Measure duration until next VBL
+  uint32_t start = ppc_get_tbl();
+  wait_for_vbl();
+  read_real3d_status_dma();
+  uint32_t end = ppc_get_tbl();
+  uint32_t duration = end - start;
+  if (duration < 0x20)
+    duration = 0x20;
 
-    // Wait for status bit to flip
-    uint32_t old_status_bit = read_real3d_status() & 0x02000000;
-    uint32_t status_bit;
-    do
-    {
-      status_bit = read_real3d_status() & 0x02000000;
-    } while (status_bit == old_status_bit && !timer_expired(&timeout));
-
-    // Measure duration until next VBL
-    uint32_t start = ppc_get_tbl();
-    wait_for_vbl();
-    read_real3d_status();
-    uint32_t end = ppc_get_tbl();
-    uint32_t duration = end - start;
-    if (duration < 0x20)
-      duration = 0x20;
-
-    // Compute the time that the flush and subsequent status bit flip took.
-    // Model 3 games use this value to load the DEC register and perform
-    // frame timing.
-    uint32_t dec_reload_value = frame_duration - duration;
-    
-    if (timer_expired(&timeout))
-    {
-      tilegen_printf("  TEST FAILED\n");
-      tilegen_printf("    real3d_status = %08x\n", read_real3d_status());
-    }
-    else
-    {
-      tilegen_printf("  Test Results:\n");
-      tilegen_printf("    duration         = %d\n", duration);
-      tilegen_printf("    frame_duration   = %d\n", frame_duration);
-      tilegen_printf("    dec_reload_value = %d\n", dec_reload_value);
-    }
+  // Compute the time that the flush and subsequent status bit flip took.
+  // Model 3 games use this value to load the DEC register and perform
+  // frame timing.
+  uint32_t dec_reload_value = frame_duration - duration;
+  
+  if (timer_expired(&timeout))
+  {
+    tilegen_printf("  TEST FAILED\n");
+    tilegen_printf("    real3d_status = %08x\n", read_real3d_status_dma());
+  }
+  else
+  {
+    tilegen_printf("  Test Results:\n");
+    tilegen_printf("    duration         = %d\n", duration);
+    tilegen_printf("    frame_duration   = %d\n", frame_duration);
+    tilegen_printf("    dec_reload_value = %d\n", dec_reload_value);
   }
   
   while (!poll_timer(test_timer))

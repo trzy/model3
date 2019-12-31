@@ -1,6 +1,7 @@
 #include "model3/dma.h"
 #include "model3/ppc.h"
 #include "model3/timer.h"
+#include "model3/utils.h"
 
 static const uint32_t s_scsi_base = 0xc0000000; // Step 1.0
 static volatile uint8_t * const s_scsi_byte = (uint8_t *) 0xc0000000;
@@ -52,14 +53,6 @@ static uint8_t get_interrupt_reason()
   if ((istat & 0x01) == 0)  // DIP (DMA interrupt pending)
     return 0;
   return s_scsi_byte[0x0c]; // return DSTAT (DMA status)
-}
-
-static void byte_reverse_words(uint32_t *src, uint32_t num_words)
-{
-  for (uint32_t i = 0; i < num_words; i++)
-  {
-    ppc_stwbrx((uint32_t) &src[i], src[i]);
-  }
 }
 
 int dma_irq_handler()
@@ -138,14 +131,14 @@ void dma_copy(uint32_t dest_addr, uint32_t *src, uint32_t num_words)
   s_scsi_state &= 0xbf;
 }
 
-void dma_blocking_copy(uint32_t dest_addr, uint32_t *src, uint32_t num_words, bool byte_reverse)
+void dma_blocking_copy(uint32_t dest_addr, uint32_t *src, uint32_t num_words, bool byte_reverse_source)
 {
-  if (byte_reverse)
+  if (byte_reverse_source)
     byte_reverse_words(src, num_words);
   dma_copy(dest_addr, src, num_words);
   while (s_transfer_pending != 0)
     ;
-  if (byte_reverse)
+  if (byte_reverse_source)
     byte_reverse_words(src, num_words);
 }
 
